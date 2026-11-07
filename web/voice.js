@@ -311,6 +311,7 @@ async function startListening() {
       }
       return;
     }
+    rec.peak = Math.max(rec.peak || 0, sexta.level || 0);
     quietSince = loud ? 0 : quietSince || now;
     if ((quietSince && now - quietSince > VAD.silenceMs) || now - rec.startedAt > VAD.maxMs) {
       const r = rec; rec = null; loudSince = 0;
@@ -318,7 +319,7 @@ async function startListening() {
       try {
         const blob = await r.stop();
         if (now - r.startedAt > 700) {
-          if (blob.size < 1000) diag(`gravação vazia (${blob.size} bytes, ${blob.type})`);
+          diag(`gravei ${now - r.startedAt} ms, ${blob.size} bytes, pico ${(r.peak || 0).toFixed(2)}; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}`);
           await handleAudio(blob, { requireWake: true });
         }
         else sexta.setState("listening", "ESCUTANDO");

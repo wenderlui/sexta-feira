@@ -41,6 +41,20 @@ def _setup_logging() -> None:
         log.setLevel(logging.INFO)
 
 
+LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
+
+
+def _keep_last_audio(audio: bytes, content_type: str) -> None:
+    # Guarda só o último áudio recebido, no próprio PC, para diagnóstico (logs/ não vai pro Git).
+    if not LOG_DIR.is_dir():
+        return
+    ext = "webm" if "webm" in content_type else "mp4"
+    try:
+        (LOG_DIR / f"ultimo-audio.{ext}").write_bytes(audio)
+    except OSError:
+        pass
+
+
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
 
@@ -176,8 +190,9 @@ def create_app(
             logging.getLogger("sexta").exception("Falha ao transcrever")
             raise HTTPException(status_code=500, detail=f"Falha ao transcrever: {exc}")
         logging.getLogger("sexta").info(
-            "Ouvi (%s, %d bytes): %r", request.headers.get("content-type"), len(audio),
-            result.get("text", ""))
+            "Ouvi (%s, %d bytes, %ss): %r", request.headers.get("content-type"), len(audio),
+            result.get("duration"), result.get("text", ""))
+        _keep_last_audio(audio, request.headers.get("content-type", ""))
         return result
 
     @app.post("/api/log")
