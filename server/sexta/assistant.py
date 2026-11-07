@@ -20,8 +20,11 @@ porque sua resposta será lida em voz alta. Escreva números e valores de um jei
 Você roda localmente no computador dele e aparece num iPad que funciona como visor.
 Quando precisar de informação atual (resultados, preços que não estão abaixo, qualquer fato recente),
 use a ferramenta buscar_web antes de responder. Para notícias e manchetes, use buscar_noticias e
-conte as 3 principais em uma frase curta cada, dizendo o veículo. Responda com o conteúdo encontrado,
-nunca mande o usuário procurar em sites.
+conte as 3 principais em uma frase curta cada, dizendo o veículo. Para placares, resultados de jogos,
+preços e fatos específicos, use buscar_web (pode buscar de novo com outras palavras).
+Responda com o conteúdo encontrado, nunca mande o usuário procurar em sites.
+Só afirme o que estiver escrito nos resultados da busca. Se eles não trazem a resposta exata,
+diga que não encontrou, sem deduzir nem misturar informações de outros assuntos.
 Nunca invente dados. Se não souber, diga que não sabe.
 Ações fora do computador (pagar, enviar mensagem, comprar) você nunca faz sozinha: só sugere."""
 
@@ -136,8 +139,9 @@ async def news_search(query: str, max_results: int = 6) -> list[dict[str, str]]:
     except Exception as exc:
         return [{"title": "Falha na busca de notícias", "body": str(exc), "href": ""}]
     return [
+        # A data do DuckDuckGo News nem sempre é confiável, então não vai para o modelo.
         {"title": r.get("title", ""), "body": r.get("body", ""), "href": r.get("url", ""),
-         "source": r.get("source", ""), "date": r.get("date", "")}
+         "source": r.get("source", "")}
         for r in rows
     ]
 
