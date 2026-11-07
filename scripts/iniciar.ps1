@@ -15,4 +15,6 @@ $req = if (Test-Path "requirements-voz.txt") { "requirements-voz.txt" } else { "
 .\.venv\Scripts\python.exe -m pip install -q -r $req
 
 # Só escuta no próprio PC; o Tailscale publica em HTTPS para os seus aparelhos.
-.\.venv\Scripts\python.exe -m uvicorn sexta.app:app --app-dir server --host 127.0.0.1 --port 8000
+# O registro fica em logs\servidor.log (útil quando roda escondido pela Tarefa Agendada).
+New-Item -ItemType Directory -Force -Path "logs" | Out-Null
+.\.venv\Scripts\python.exe -m uvicorn sexta.app:app --app-dir server --host 127.0.0.1 --port 8000 *>> "logs\servidor.log"
