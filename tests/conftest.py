@@ -69,6 +69,9 @@ class FakeUpstream:
             msg = self.ollama_replies.pop(0) if self.ollama_replies else {
                 "role": "assistant", "content": "Olá, Wender."}
             return httpx.Response(200, json={"message": msg, "done": True})
+        if host == "exemplo.com":
+            page = "<html><body><nav>menu</nav><article><p>" + "O Flamengo venceu o jogo por 2 a 1 no Maracanã. " * 10 + "</p></article></body></html>"
+            return httpx.Response(200, text=page, headers={"content-type": "text/html; charset=utf-8"})
         if host == "api.binance.com":
             if self.binance_status != 200:
                 return httpx.Response(self.binance_status, json={"code": 0, "msg": "restricted"})

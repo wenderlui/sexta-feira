@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from .config import Settings
+from .research import Research
 
 SYSTEM_PROMPT = """Você é a Sexta-feira, a assistente pessoal de IA do Wender.
 Fale sempre em português do Brasil, de forma natural, curta e direta, como numa conversa falada:
@@ -153,13 +154,15 @@ class Assistant:
         self.s = settings
         self.search = search
         self.news = news
+        self.research = Research(client)
 
     async def _ollama_chat(self, model: str, messages: list[dict], tools=None) -> dict:
         body: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "stream": False,
-            "keep_alive": "30m",
+            # O modelo de conversa fica sempre na GPU; o de visão sai depois de 10 min.
+            "keep_alive": -1 if model == self.s.chat_model else "10m",
             "options": {"temperature": 0.6, "num_ctx": 8192},
         }
         if model.startswith("qwen3"):
@@ -215,9 +218,9 @@ class Assistant:
                 name = fn.get("name")
                 if name in ("buscar_web", "buscar_noticias"):
                     fn_search = self.search if name == "buscar_web" else self.news
-                    results = await fn_search(args.get("consulta", ""))
+                    results = await self.research.run(name, args.get("consulta", ""), fn_search)
                     sources.extend(r for r in results if r.get("href"))
-                    content = json.dumps(results, ensure_ascii=False)[:6000]
+                    content = json.dumps(results, ensure_ascii=False)[:9000]
                 else:
                     content = "Ferramenta desconhecida."
                 msgs.append({"role": "tool", "content": content, "tool_name": fn.get("name", "")})
@@ -225,6 +228,15 @@ class Assistant:
         msg = await self._ollama_chat(self.s.chat_model, msgs)
         return {"text": _strip_think(msg.get("content", "")), "model": self.s.chat_model,
                 "used_vision": False, "sources": sources}
+
+    async def warm_up(self) -> None:
+        """Carrega o modelo de conversa na GPU para a primeira pergunta não esperar."""
+        r = await self.client.post(
+            f"{self.s.ollama_url}/api/generate",
+            json={"model": self.s.chat_model, "prompt": "", "keep_alive": -1},
+            timeout=300,
+        )
+        r.raise_for_status()
 
     async def status(self) -> dict[str, Any]:
         try:

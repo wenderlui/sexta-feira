@@ -258,6 +258,11 @@ body[data-state="speaking"] .glow { animation: breathe 0.45s ease-in-out infinit
 .toggle .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
 .toggle[aria-pressed="true"] { border-color: var(--live); }
 .toggle[aria-pressed="true"] .dot { background: var(--live); box-shadow: 0 0 8px var(--live); animation: breathe 1.2s infinite; }
+/* MUDO: verde quando está ouvindo, âmbar quando o microfone está desligado */
+.mic[aria-pressed="false"] { border-color: var(--up); }
+.mic[aria-pressed="false"] .dot { background: var(--up); box-shadow: 0 0 8px var(--up); animation: breathe 1.6s infinite; }
+.mic[aria-pressed="true"] { border-color: var(--amber); }
+.mic[aria-pressed="true"] .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: none; }
 #btn-mute[aria-pressed="true"] { border-color: var(--amber); }
 #btn-mute[aria-pressed="true"] .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 .talk {

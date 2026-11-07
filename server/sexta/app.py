@@ -45,10 +45,17 @@ def create_app(
     ears = transcriber or Transcriber(settings)
 
     async def _warm():
+        log = logging.getLogger("sexta")
         try:
-            await ears.warm_up()
-        except Exception as exc:  # não impede o painel de funcionar
-            logging.getLogger("sexta").warning("Whisper não carregou: %s", exc)
+            await state["assistant"].warm_up()
+            log.info("Modelo %s carregado na GPU", settings.chat_model)
+        except Exception as exc:  # Ollama ainda subindo etc.: não impede o painel
+            log.warning("IA não pré-carregou: %s", exc)
+        if transcriber is None:
+            try:
+                await ears.warm_up()
+            except Exception as exc:
+                log.warning("Whisper não carregou: %s", exc)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -58,8 +65,8 @@ def create_app(
         )
         kwargs = {k: v for k, v in (("search", search), ("news", news)) if v}
         state["assistant"] = Assistant(state["client"], settings, **kwargs)
-        if transcriber is None and ears.available:
-            # Carrega o Whisper em segundo plano para a primeira fala não demorar.
+        if client is None:
+            # Carrega a IA e o Whisper em segundo plano para a primeira resposta não demorar.
             state["warm"] = asyncio.create_task(_warm())
         try:
             yield

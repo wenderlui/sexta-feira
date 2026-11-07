@@ -35,14 +35,21 @@ O `scripts\iniciar.ps1` já instala o `requirements-voz.txt` sozinho a cada iní
 
 | Botão | O que faz |
 | --- | --- |
-| **FALAR** (segurar) | Grava enquanto você segura; ao soltar, ela responde |
-| **ESCUTA** | Microfone sempre ligado. Comece com "Sexta-feira, …". Por 10 s depois de cada resposta, não precisa repetir o nome |
-| **CÂMERA** | Mostra a câmera dentro do núcleo. Pergunte "o que você está vendo?", "leia isso", "o que tenho na mão?" |
-| **MUDO** | Ela responde só por escrito |
+| **OUVINDO / MUDO** | Ao abrir, ela já fica ouvindo (verde). Comece com "Sexta-feira, …". Por 10 s depois de cada resposta, não precisa repetir o nome. Toque para MUDO (âmbar): o microfone desliga. A escolha fica salva no iPad |
+| **FALAR** (segurar) | Grava enquanto você segura, mesmo no MUDO; ao soltar, ela responde. Bom em lugar barulhento |
+| **CÂMERA** | Mostra a câmera dentro do núcleo e volta como você deixou. Pergunte "o que você está vendo?", "leia isso", "o que tenho na mão?" |
+| **SEM VOZ** | Ela responde só por escrito |
 | Caixa de texto | Escreva a pergunta, se preferir |
 
 Os três selos no topo mostram o estado: **LINK** (painel), **IA** (Ollama e modelo) e **VOZ** (Whisper).
 Verde = pronto, amarelo = parcial, vermelho = fora do ar.
+
+## Buscas e velocidade
+
+- A busca prefere resultados em português, lê o começo das 3 primeiras páginas (não só o resumo)
+  e guarda o resultado por 10 minutos, então repetir a pergunta é instantâneo.
+- Quando o servidor liga, ele já carrega o `qwen3:8b` e o Whisper na GPU, e o modelo de conversa
+  fica carregado para sempre (`keep_alive: -1`). O de visão sai da memória 10 min depois do uso.
 
 ## Trocar de modelo
 
@@ -52,5 +59,7 @@ Para respostas mais rápidas, `qwen3:4b`; para entender melhor fala com ruído, 
 ## Limites conhecidos
 
 - O iOS desliga câmera e microfone se a tela bloquear ou o app sair da frente.
-- A ESCUTA usa um detector de volume simples; em ambiente barulhento, prefira FALAR.
+- A escuta usa um detector de volume simples; em ambiente barulhento, prefira FALAR.
+- No iOS, o microfone só começa a medir o volume depois do primeiro toque na tela.
+- Placar de futebol não é confiável com a busca atual (ficou para depois).
 - A busca usa o DuckDuckGo sem chave, que pode limitar muitas buscas seguidas.

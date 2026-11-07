@@ -42,7 +42,7 @@ function remember(role, content) {
   try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch { /* ok */ }
 }
 for (const m of history.slice(-6)) addMsg(m.role, m.content);
-if (!history.length) addMsg("sys", "Segure FALAR, escreva abaixo ou ligue a ESCUTA e diga \"Sexta-feira…\".");
+if (!history.length) addMsg("sys", "Estou ouvindo: comece com \"Sexta-feira…\". Também dá para segurar FALAR ou escrever abaixo.");
 
 // ---------- Falar (voz do próprio iPad) ----------
 let voice = null;
@@ -199,6 +199,7 @@ async function handleAudio(blob, { requireWake }) {
   } catch (e) {
     if (e.code === 503) {
       serverSttOff = true;
+      if (continuous) { await stopListening(); showMuted(true); }
       addMsg("sys", BrowserSR
         ? "O Whisper ainda não está instalado no PC. Vou usar o reconhecimento do Safari ao segurar FALAR."
         : "O Whisper ainda não está instalado no PC. Escreva sua pergunta por enquanto.");
@@ -221,32 +222,38 @@ talk.addEventListener("pointercancel", holdEnd);
 talk.addEventListener("pointerleave", () => hold && holdEnd());
 talk.addEventListener("contextmenu", (e) => e.preventDefault());
 
-// --- Escuta contínua com palavra de ativação ---
+// --- Escuta automática com palavra de ativação ---
+// Liga sozinha ao abrir; só para quando você toca em MUDO (a escolha fica salva neste iPad).
 const VAD = { on: 0.1, startMs: 160, silenceMs: 1300, maxMs: 15000 };
+const MUTED_KEY = "sexta.micMuted";
 let vadTimer = 0;
+let processing = false;
 
-async function toggleContinuous() {
+function savedMuted() {
+  try { return localStorage.getItem(MUTED_KEY) === "1"; } catch { return false; }
+}
+function saveMuted(on) {
+  try { localStorage.setItem(MUTED_KEY, on ? "1" : "0"); } catch { /* ok */ }
+}
+function showMuted(on) {
   const btn = $("btn-mic");
-  if (continuous) {
-    continuous = false;
-    clearInterval(vadTimer);
-    btn.setAttribute("aria-pressed", "false");
-    await sexta.releaseMic();
-    sexta.setState("idle");
-    return;
-  }
+  btn.setAttribute("aria-pressed", String(on));
+  btn.querySelector(".lbl").textContent = on ? "MUDO" : "OUVINDO";
+  btn.title = on ? "Microfone desligado. Toque para voltar a ouvir." : "Ouvindo. Toque para silenciar o microfone.";
+}
+
+async function startListening() {
+  if (continuous) return true;
   if (serverSttOff) {
-    addMsg("sys", "A escuta contínua precisa do Whisper instalado no PC.");
-    return;
+    addMsg("sys", "A escuta automática precisa do Whisper no PC. Por enquanto, segure FALAR.");
+    return false;
   }
-  try { await sexta.ensureMic(); } catch (err) { sexta.mediaError("microfone", err); return; }
-  unlockSpeech();
+  try { await sexta.ensureMic(); } catch (err) { sexta.mediaError("microfone", err); return false; }
   continuous = true;
-  btn.setAttribute("aria-pressed", "true");
   sexta.setState("listening", "ESCUTANDO");
   let loudSince = 0, quietSince = 0, rec = null;
   vadTimer = setInterval(async () => {
-    if (!continuous || busy || hold || document.body.dataset.state === "speaking") return;
+    if (!continuous || busy || hold || processing || document.body.dataset.state === "speaking") return;
     const now = Date.now();
     const loud = (sexta.level || 0) > VAD.on;
     if (!rec) {
@@ -261,13 +268,44 @@ async function toggleContinuous() {
     quietSince = loud ? 0 : quietSince || now;
     if ((quietSince && now - quietSince > VAD.silenceMs) || now - rec.startedAt > VAD.maxMs) {
       const r = rec; rec = null; loudSince = 0;
-      const blob = await r.stop();
-      if (now - r.startedAt > 700) await handleAudio(blob, { requireWake: true });
-      else sexta.setState("listening", "ESCUTANDO");
+      processing = true;
+      try {
+        const blob = await r.stop();
+        if (now - r.startedAt > 700) await handleAudio(blob, { requireWake: true });
+        else sexta.setState("listening", "ESCUTANDO");
+      } finally {
+        processing = false;
+      }
     }
   }, 50);
+  return true;
 }
-$("btn-mic").addEventListener("click", toggleContinuous);
+
+async function stopListening() {
+  continuous = false;
+  clearInterval(vadTimer);
+  await sexta.releaseMic();
+  sexta.setState("idle", "MICROFONE MUDO");
+}
+
+$("btn-mic").addEventListener("click", async () => {
+  unlockSpeech();
+  const muted = $("btn-mic").getAttribute("aria-pressed") === "true";
+  if (muted) {
+    if (await startListening()) { saveMuted(false); showMuted(false); }
+  } else {
+    await stopListening();
+    saveMuted(true); showMuted(true);
+  }
+});
+
+// Ao abrir o app: começa a ouvir, a não ser que você tenha deixado no MUDO.
+(async () => {
+  const muted = savedMuted();
+  showMuted(muted);
+  if (muted) { sexta.setState("idle", "MICROFONE MUDO"); return; }
+  if (!(await startListening())) { showMuted(true); }
+})();
 
 // --- Texto ---
 $("chat-form").addEventListener("submit", (e) => {

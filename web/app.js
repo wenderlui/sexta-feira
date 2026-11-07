@@ -272,6 +272,9 @@ let meterFrame = 0;
 
 function setPressed(btn, on) { btn.setAttribute("aria-pressed", String(on)); }
 
+const CAMERA_KEY = "sexta.cameraOn";
+function saveCamera(on) { try { localStorage.setItem(CAMERA_KEY, on ? "1" : "0"); } catch { /* ok */ } }
+
 async function toggleCamera() {
   const btn = $("btn-camera");
   const video = $("camera-preview");
@@ -280,6 +283,7 @@ async function toggleCamera() {
     sexta.cameraStream = null;
     video.srcObject = null; video.hidden = true;
     setPressed(btn, false);
+    saveCamera(false);
     return;
   }
   try {
@@ -288,6 +292,7 @@ async function toggleCamera() {
     });
     video.srcObject = sexta.cameraStream; video.hidden = false;
     setPressed(btn, true);
+    saveCamera(true);
   } catch (e) { mediaError("câmera", e); }
 }
 
@@ -297,6 +302,12 @@ async function ensureMic() {
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") {
+    // O iOS só libera o áudio depois de um toque na tela.
+    sexta.setStatus("toque na tela para ativar o microfone");
+    const resume = () => audioCtx?.resume().then(() => sexta.setStatus(""));
+    document.addEventListener("pointerdown", resume, { once: true });
+  }
   const analyser = audioCtx.createAnalyser();
   analyser.fftSize = 512;
   audioCtx.createMediaStreamSource(sexta.micStream).connect(analyser);
@@ -379,6 +390,8 @@ async function start() {
   setInterval(loadAssistant, 30000);
 
   $("btn-camera").addEventListener("click", toggleCamera);
+  // A câmera volta como você deixou da última vez.
+  try { if (localStorage.getItem(CAMERA_KEY) === "1") toggleCamera(); } catch { /* ok */ }
   $("btn-fullscreen").addEventListener("click", toggleFullscreen);
   $("btn-mute").addEventListener("click", () => {
     sexta.muted = !sexta.muted;
