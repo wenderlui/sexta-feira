@@ -302,12 +302,15 @@ async function ensureMic() {
     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === "suspended") {
-    // O iOS só libera o áudio depois de um toque na tela.
-    sexta.setStatus("toque na tela para ativar o microfone");
-    const resume = () => audioCtx?.resume().then(() => sexta.setStatus(""));
-    document.addEventListener("pointerdown", resume, { once: true });
-  }
+  // O iOS só libera o áudio depois de um toque na tela e pode pausá-lo de novo
+  // (depois de falar, ao trocar de app). Tentamos retomar a cada toque.
+  const checkAudio = () => {
+    if (!audioCtx) return;
+    if (audioCtx.state === "running") sexta.setStatus("");
+    else sexta.setStatus("toque na tela para ativar o microfone");
+  };
+  audioCtx.onstatechange = checkAudio;
+  checkAudio();
   const analyser = audioCtx.createAnalyser();
   analyser.fftSize = 512;
   audioCtx.createMediaStreamSource(sexta.micStream).connect(analyser);
@@ -327,6 +330,14 @@ async function ensureMic() {
   draw();
   return sexta.micStream;
 }
+
+function resumeAudio() {
+  if (audioCtx && audioCtx.state !== "running") audioCtx.resume().catch(() => {});
+}
+document.addEventListener("pointerdown", resumeAudio);
+document.addEventListener("touchend", resumeAudio);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) resumeAudio(); });
+sexta.audioRunning = () => audioCtx?.state === "running";
 
 async function releaseMic() {
   if (!sexta.micStream) return;

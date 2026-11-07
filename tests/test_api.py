@@ -83,3 +83,10 @@ def test_serves_ipad_app(client):
     assert "Sexta-feira" in r.text
     assert client.get("/manifest.webmanifest").status_code == 200
     assert client.get("/sw.js").status_code == 200
+
+
+def test_ipad_diagnostic_log(client, caplog):
+    with caplog.at_level("INFO", logger="sexta.ipad"):
+        r = client.post("/api/log", json={"msg": "escuta ligada"})
+    assert r.status_code == 200
+    assert "escuta ligada" in caplog.text

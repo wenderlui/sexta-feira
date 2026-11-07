@@ -28,6 +28,19 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
     image: str | None = None  # JPEG em base64 (sem o prefixo data:)
 
+class ClientLog(BaseModel):
+    msg: str
+
+
+def _setup_logging() -> None:
+    log = logging.getLogger("sexta")
+    if not log.handlers:
+        h = logging.StreamHandler()
+        h.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+        log.addHandler(h)
+        log.setLevel(logging.INFO)
+
+
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
 
@@ -40,6 +53,7 @@ def create_app(
     transcriber: Transcriber | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
+    _setup_logging()
     cache = TTLCache()
     state: dict = {}
     ears = transcriber or Transcriber(settings)
@@ -148,9 +162,20 @@ def create_app(
         if len(audio) > 25 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="Áudio muito grande.")
         try:
-            return await ears.transcribe(audio)
+            result = await ears.transcribe(audio)
         except Exception as exc:
+            logging.getLogger("sexta").exception("Falha ao transcrever")
             raise HTTPException(status_code=500, detail=f"Falha ao transcrever: {exc}")
+        logging.getLogger("sexta").info(
+            "Ouvi (%s, %d bytes): %r", request.headers.get("content-type"), len(audio),
+            result.get("text", ""))
+        return result
+
+    @app.post("/api/log")
+    async def client_log(entry: ClientLog):
+        # Diagnóstico do iPad: aparece no logs/servidor.log do PC.
+        logging.getLogger("sexta.ipad").info("%s", entry.msg[:500])
+        return {"ok": True}
 
     @app.get("/api/assistant/status")
     async def assistant_status():

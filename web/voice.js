@@ -2,7 +2,9 @@
 const $ = (id) => document.getElementById(id);
 const sexta = window.sexta;
 
-const WAKE = /\bsexta(?:[\s-]*feira)?\b[\s,.!?:]*/i;
+// Aceita também como o Whisper às vezes escreve: "sexta feira", "sesta", "cesta", "6ª feira".
+const WAKE = /^[\s,.!?:"'-]*(?:(?:ei|oi|ok|olá|ola|hey)[\s,]+)?(?:sexta|sesta|cesta|sexto|6ª|6a)(?:[\s-]*feira)?\b[\s,.!?:]*/i;
+const WAKE_ANYWHERE = /\b(?:sexta|sesta|cesta)(?:[\s-]*feira)?\b[\s,.!?:]*/i;
 const FOLLOW_UP_MS = 10000;      // depois de responder, aceita a próxima fala sem "Sexta-feira"
 const HISTORY_KEY = "sexta.chat.v1";
 
@@ -11,6 +13,13 @@ try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]").slice(-20)
 let busy = false;
 let lastReplyAt = 0;
 let continuous = false;
+
+// Manda um recado de diagnóstico para o registro do PC (logs/servidor.log).
+function diag(msg) {
+  fetch("/api/log", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ msg }) }).catch(() => {});
+}
+sexta.diag = diag;
 
 // ---------- Registro da conversa ----------
 function addMsg(role, text, sources = []) {
@@ -74,7 +83,10 @@ function speak(text) {
     u.lang = "pt-BR";
     if (voice) u.voice = voice;
     u.rate = 1.05;
-    u.onend = u.onerror = () => resolve();
+    // Se o iOS não avisar que terminou, não deixamos a escuta travada.
+    const guard = setTimeout(done, 4000 + text.length * 90);
+    function done() { clearTimeout(guard); resolve(); }
+    u.onend = u.onerror = done;
     sexta.setState("speaking");
     window.speechSynthesis.speak(u);
   });
@@ -115,6 +127,7 @@ async function ask(text) {
     lastReplyAt = Date.now();
   } catch (e) {
     console.warn(e);
+    diag(`chat falhou: ${e.message}`);
     addMsg("sys", `Não consegui responder: ${e.message}`);
   } finally {
     busy = false;
@@ -203,17 +216,31 @@ async function handleAudio(blob, { requireWake }) {
       addMsg("sys", BrowserSR
         ? "O Whisper ainda não está instalado no PC. Vou usar o reconhecimento do Safari ao segurar FALAR."
         : "O Whisper ainda não está instalado no PC. Escreva sua pergunta por enquanto.");
-    } else addMsg("sys", e.message);
+    } else { addMsg("sys", e.message); diag(`transcrição falhou: ${e.message}`); }
     sexta.setState(continuous ? "listening" : "idle");
     return;
   }
   text = text.trim();
   if (!text) { sexta.setState(continuous ? "listening" : "idle"); return; }
   if (requireWake && Date.now() - lastReplyAt > FOLLOW_UP_MS) {
-    if (!WAKE.test(text)) { sexta.setState("listening", "ESCUTANDO"); return; }
+    if (!WAKE.test(text) && !WAKE_ANYWHERE.test(text.slice(0, 40))) {
+      // Mostra o que ouviu, para você saber que o microfone funciona.
+      sexta.setState("listening", "ESCUTANDO");
+      showHeard(text);
+      return;
+    }
   }
-  text = text.replace(WAKE, "").trim() || "Oi";
+  text = text.replace(WAKE, "").replace(WAKE_ANYWHERE, "").trim() || "Oi";
   await ask(text);
+}
+
+let heardTimer = 0;
+function showHeard(text) {
+  const label = $("core-label");
+  label.textContent = `OUVI: ${text.slice(0, 40)}`;
+  label.title = "Comece com \"Sexta-feira\" para ela responder.";
+  clearTimeout(heardTimer);
+  heardTimer = setTimeout(() => { if (continuous && !busy) sexta.setState("listening", "ESCUTANDO"); }, 3500);
 }
 
 talk.addEventListener("pointerdown", holdStart);
@@ -251,8 +278,19 @@ async function startListening() {
   try { await sexta.ensureMic(); } catch (err) { sexta.mediaError("microfone", err); return false; }
   continuous = true;
   sexta.setState("listening", "ESCUTANDO");
-  let loudSince = 0, quietSince = 0, rec = null;
+  let loudSince = 0, quietSince = 0, rec = null, lastSound = Date.now(), warned = false;
+  diag(`escuta ligada; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}; gravador ${recorderMime() || "padrão"}`);
   vadTimer = setInterval(async () => {
+    if ((sexta.level || 0) > 0.01) {
+      lastSound = Date.now();
+      if (warned) { warned = false; sexta.setStatus(""); }
+    }
+    else if (!warned && Date.now() - lastSound > 8000) {
+      // Nível zerado por muito tempo: no iPad, quase sempre é o áudio pausado.
+      warned = true;
+      sexta.setStatus("não estou ouvindo nada: toque na tela");
+      diag(`microfone em silêncio total; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}`);
+    }
     if (!continuous || busy || hold || processing || document.body.dataset.state === "speaking") return;
     const now = Date.now();
     const loud = (sexta.level || 0) > VAD.on;
@@ -271,7 +309,10 @@ async function startListening() {
       processing = true;
       try {
         const blob = await r.stop();
-        if (now - r.startedAt > 700) await handleAudio(blob, { requireWake: true });
+        if (now - r.startedAt > 700) {
+          if (blob.size < 1000) diag(`gravação vazia (${blob.size} bytes, ${blob.type})`);
+          await handleAudio(blob, { requireWake: true });
+        }
         else sexta.setState("listening", "ESCUTANDO");
       } finally {
         processing = false;

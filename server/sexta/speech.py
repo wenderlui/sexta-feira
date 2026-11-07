@@ -64,7 +64,9 @@ class Transcriber:
 
     def _run(self, model, audio: bytes) -> dict[str, Any]:
         segments, info = model.transcribe(
-            io.BytesIO(audio), language="pt", vad_filter=True, beam_size=1
+            io.BytesIO(audio), language="pt", vad_filter=True, beam_size=1,
+            # Ajuda o Whisper a escrever a palavra de ativação do jeito certo.
+            initial_prompt="Sexta-feira, ",
         )
         text = " ".join(seg.text.strip() for seg in segments).strip()
         return {"text": text, "duration": round(info.duration, 2)}
