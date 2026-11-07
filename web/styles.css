@@ -26,6 +26,39 @@ body {
   padding: env(safe-area-inset-top) 16px calc(88px + env(safe-area-inset-bottom));
 }
 
+/* iPad deitado (horizontal): tudo cabe numa tela, sem rolagem. */
+@media (orientation: landscape) and (min-width: 1000px) {
+  body {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+  .topbar { padding: 8px 0 12px; }
+  .grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .card { overflow: hidden; display: flex; flex-direction: column; }
+  .vision #camera-preview { flex: 1; min-height: 0; aspect-ratio: auto; }
+  .coins td { padding: 6px 8px; }
+  .credits { display: none; }
+  .controls { padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+}
+
+/* Aviso para girar o iPad quando ele estiver em pé. */
+.rotate-hint { display: none; }
+@media (orientation: portrait) and (min-width: 700px) and (max-width: 1100px) {
+  .rotate-hint {
+    display: block; text-align: center; padding: 8px; margin-bottom: 12px;
+    border: 1px dashed var(--line); border-radius: 12px; color: var(--muted);
+  }
+}
+
 a { color: var(--accent); }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
