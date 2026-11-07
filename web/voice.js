@@ -1,6 +1,6 @@
 // Conversa por voz: ouvir (Whisper no PC), pensar (Ollama) e falar (voz do iPad).
 const $ = (id) => document.getElementById(id);
-import { Segmenter, downsample, encodeWav } from "./listen.js";
+import { Segmenter, downsample, encodeWav, sentences } from "./listen.js";
 
 const sexta = window.sexta;
 
@@ -95,8 +95,7 @@ function stopSpeaking() {
 }
 sexta.stopSpeaking = stopSpeaking;
 
-async function speakServer(text) {
-  const t0 = Date.now();
+async function ttsBuffer(text, ctx) {
   const r = await fetch("/api/tts", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
     signal: AbortSignal.timeout?.(20000),
@@ -104,12 +103,11 @@ async function speakServer(text) {
   if (r.status === 503) { serverTtsOff = true; throw new Error("tts-off"); }
   if (!r.ok) throw new Error(`voz do PC falhou (${r.status})`);
   const data = await r.arrayBuffer();
-  const ctx = outputCtx();
-  if (ctx.state !== "running") await ctx.resume().catch(() => {});
-  const buffer = await new Promise((ok, fail) => ctx.decodeAudioData(data, ok, fail));
-  sexta.setState("speaking");
-  diag(`voz do PC: ${Date.now() - t0} ms para gerar, ${buffer.duration.toFixed(1)} s de fala, áudio ${ctx.state}`);
-  await new Promise((resolve) => {
+  return new Promise((ok, fail) => ctx.decodeAudioData(data, ok, fail));
+}
+
+function play(buffer, ctx) {
+  return new Promise((resolve) => {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.connect(ctx.destination);
@@ -118,7 +116,30 @@ async function speakServer(text) {
     playing = src;
     src.start();
   });
+}
+
+async function speakServer(text) {
+  const t0 = Date.now();
+  const ctx = outputCtx();
+  if (ctx.state !== "running") await ctx.resume().catch(() => {});
+  const parts = sentences(text);
+  let next = ttsBuffer(parts[0], ctx);
+  let total = 0, stopped = false;
   playing = null;
+  for (let i = 0; i < parts.length; i++) {
+    const buffer = await next;
+    if (i + 1 < parts.length) next = ttsBuffer(parts[i + 1], ctx).catch((e) => e);
+    if (i === 0) {
+      sexta.setState("speaking");
+      diag(`voz do PC: ${Date.now() - t0} ms até começar, ${parts.length} frase(s), áudio ${ctx.state}`);
+    }
+    if (buffer instanceof Error) throw buffer;
+    if (i > 0 && !playing) { stopped = true; break; } // alguém mandou parar
+    total += buffer.duration;
+    await play(buffer, ctx);
+  }
+  if (!stopped) playing = null;
+  return total;
 }
 
 async function speak(text) {

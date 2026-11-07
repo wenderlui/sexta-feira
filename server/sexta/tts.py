@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import io
 import threading
-import urllib.request
 import wave
 from pathlib import Path
 
@@ -43,6 +42,19 @@ def to_wav(samples, rate: int) -> bytes:
     return buf.getvalue()
 
 
+def _download(url: str, path: Path) -> None:
+    # httpx usa os certificados do certifi; o urllib no Windows falha com CERTIFICATE_VERIFY_FAILED.
+    import httpx
+
+    tmp = path.with_suffix(path.suffix + ".part")
+    with httpx.stream("GET", url, follow_redirects=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_bytes(1 << 20):
+                f.write(chunk)
+    tmp.replace(path)
+
+
 class Speaker:
     def __init__(self, settings: Settings, models_dir: Path = MODELS_DIR):
         self.s = settings
@@ -69,9 +81,7 @@ class Speaker:
                 for name in FILES:  # baixa uma vez só (~330 MB)
                     path = self.dir / name
                     if not path.exists():
-                        tmp = path.with_suffix(path.suffix + ".part")
-                        urllib.request.urlretrieve(BASE_URL + name, tmp)
-                        tmp.replace(path)
+                        _download(BASE_URL + name, path)
                 self._engine = Kokoro(str(self.dir / FILES[0]), str(self.dir / FILES[1]))
             return self._engine
 

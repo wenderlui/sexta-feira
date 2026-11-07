@@ -101,3 +101,14 @@ export function encodeWav(samples, rate, { normalize = true } = {}) {
   }
   return buf;
 }
+
+// Divide a resposta em frases: a primeira começa a tocar enquanto o PC gera as próximas.
+export function sentences(text, min = 40) {
+  const parts = text.match(/[^.!?…]+[.!?…]*["')\]]*\s*/g) || [text];
+  const out = [];
+  for (const p of parts) {
+    if (out.length && (out[out.length - 1].length < min || p.trim().length < 12)) out[out.length - 1] += p;
+    else out.push(p);
+  }
+  return out.map((p) => p.trim()).filter(Boolean);
+}

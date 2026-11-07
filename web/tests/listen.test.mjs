@@ -40,3 +40,10 @@ test("WAV 16 kHz com volume normalizado", () => {
   assert.ok(peak > 0.8 * 0x7fff);
   assert.ok(rms(pcm) > 0);
 });
+
+test("divide a resposta em frases sem picar demais", async () => {
+  const { sentences } = await import("../listen.js");
+  assert.deepEqual(sentences("São 3 horas. Em Lowell faz 12 graus, com céu limpo. Amanhã chove."),
+    ["São 3 horas. Em Lowell faz 12 graus, com céu limpo.", "Amanhã chove."]);
+  assert.deepEqual(sentences("Oi"), ["Oi"]);
+});
