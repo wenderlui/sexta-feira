@@ -48,7 +48,7 @@ def _keep_last_audio(audio: bytes, content_type: str) -> None:
     # Guarda só o último áudio recebido, no próprio PC, para diagnóstico (logs/ não vai pro Git).
     if not LOG_DIR.is_dir():
         return
-    ext = "webm" if "webm" in content_type else "mp4"
+    ext = "webm" if "webm" in content_type else "wav" if "wav" in content_type else "mp4"
     try:
         (LOG_DIR / f"ultimo-audio.{ext}").write_bytes(audio)
     except OSError:

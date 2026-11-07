@@ -313,7 +313,9 @@ async function ensureMic() {
   checkAudio();
   const analyser = audioCtx.createAnalyser();
   analyser.fftSize = 512;
-  audioCtx.createMediaStreamSource(sexta.micStream).connect(analyser);
+  sexta.micSource = audioCtx.createMediaStreamSource(sexta.micStream);
+  sexta.micSource.connect(analyser);
+  sexta.audioCtx = audioCtx;
   sexta.analyser = analyser;
   const buf = new Uint8Array(analyser.fftSize);
   const core = document.querySelector(".core");
@@ -361,6 +363,7 @@ async function releaseMic() {
   if (!sexta.micStream) return;
   sexta.micStream.getTracks().forEach((t) => t.stop());
   sexta.micStream = null; sexta.analyser = null; sexta.level = 0;
+  sexta.micSource = null; sexta.audioCtx = null;
   cancelAnimationFrame(meterFrame);
   if (audioCtx) await audioCtx.close();
   audioCtx = null;

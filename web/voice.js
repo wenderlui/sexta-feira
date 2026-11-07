@@ -1,5 +1,7 @@
 // Conversa por voz: ouvir (Whisper no PC), pensar (Ollama) e falar (voz do iPad).
 const $ = (id) => document.getElementById(id);
+import { Segmenter, downsample, encodeWav } from "./listen.js";
+
 const sexta = window.sexta;
 
 // Aceita também como o Whisper às vezes escreve: "sexta feira", "sesta", "cesta", "6ª feira".
@@ -259,7 +261,6 @@ talk.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // --- Escuta automática com palavra de ativação ---
 // Liga sozinha ao abrir; só para quando você toca em MUDO (a escolha fica salva neste iPad).
-const VAD = { on: 0.1, startMs: 160, silenceMs: 1300, maxMs: 15000 };
 const MUTED_KEY = "sexta.micMuted";
 let vadTimer = 0;
 let processing = false;
@@ -277,6 +278,49 @@ function showMuted(on) {
   btn.title = on ? "Microfone desligado. Toque para voltar a ouvir." : "Ouvindo. Toque para silenciar o microfone.";
 }
 
+// Captura PCM direto do microfone (com 1 s de pré-gravação), em vez de ligar o
+// gravador só depois que a fala começa: assim o "Sexta-feira" do começo não se perde.
+let tap = null;
+function attachTap() {
+  const ctx = sexta.audioCtx, src = sexta.micSource;
+  if (!ctx || !src || tap?.src === src) return;
+  detachTap();
+  const node = ctx.createScriptProcessor(4096, 1, 1);
+  const seg = new Segmenter(ctx.sampleRate);
+  node.onaudioprocess = (ev) => {
+    const input = ev.inputBuffer.getChannelData(0);
+    const paused = !continuous || busy || hold || processing || document.body.dataset.state === "speaking";
+    if (paused) { if (seg.recording) seg.reset(); return; }
+    const wasRec = seg.recording;
+    const done = seg.push(new Float32Array(input));
+    if (!wasRec && seg.recording) sexta.setState("listening", "OUVINDO");
+    if (done) onUtterance(done, ctx.sampleRate);
+    else if (wasRec && !seg.recording) sexta.setState("listening", "ESCUTANDO");
+  };
+  src.connect(node);
+  node.connect(ctx.destination); // o Safari só processa se o nó estiver ligado à saída (sai silêncio)
+  tap = { node, src, seg };
+}
+function detachTap() {
+  if (!tap) return;
+  try { tap.src.disconnect(tap.node); } catch { /* ok */ }
+  try { tap.node.disconnect(); } catch { /* ok */ }
+  tap.node.onaudioprocess = null;
+  tap = null;
+}
+
+async function onUtterance({ samples, speechMs, peak }, rate) {
+  processing = true;
+  try {
+    const pcm = downsample(samples, rate, 16000);
+    const blob = new Blob([encodeWav(pcm, 16000)], { type: "audio/wav" });
+    diag(`gravei ${Math.round((pcm.length / 16000) * 1000)} ms (fala ${speechMs} ms), pico ${peak.toFixed(2)}`);
+    await handleAudio(blob, { requireWake: true });
+  } finally {
+    processing = false;
+  }
+}
+
 async function startListening() {
   if (continuous) return true;
   if (serverSttOff) {
@@ -286,54 +330,28 @@ async function startListening() {
   try { await sexta.ensureMic(); } catch (err) { sexta.mediaError("microfone", err); return false; }
   continuous = true;
   sexta.setState("listening", "ESCUTANDO");
-  let loudSince = 0, quietSince = 0, rec = null, lastSound = Date.now(), warned = false;
-  diag(`escuta ligada; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}; gravador ${recorderMime() || "padrão"}`);
-  vadTimer = setInterval(async () => {
+  attachTap();
+  let lastSound = Date.now(), warned = false;
+  diag(`escuta ligada; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}; ${sexta.audioCtx?.sampleRate} Hz`);
+  vadTimer = setInterval(() => {
+    attachTap(); // o microfone pode ter sido reaberto depois de ela falar
     if ((sexta.level || 0) > 0.01) {
       lastSound = Date.now();
       if (warned) { warned = false; sexta.setStatus(""); }
-    }
-    else if (!warned && Date.now() - lastSound > 8000) {
+    } else if (!warned && Date.now() - lastSound > 8000) {
       // Nível zerado por muito tempo: no iPad, quase sempre é o áudio pausado.
       warned = true;
       sexta.setStatus("não estou ouvindo nada: toque na tela");
       diag(`microfone em silêncio total; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}`);
     }
-    if (!continuous || busy || hold || processing || document.body.dataset.state === "speaking") return;
-    const now = Date.now();
-    const loud = (sexta.level || 0) > VAD.on;
-    if (!rec) {
-      loudSince = loud ? loudSince || now : 0;
-      if (loudSince && now - loudSince > VAD.startMs) {
-        rec = record(sexta.micStream);
-        quietSince = 0;
-        sexta.setState("listening", "OUVINDO");
-      }
-      return;
-    }
-    rec.peak = Math.max(rec.peak || 0, sexta.level || 0);
-    quietSince = loud ? 0 : quietSince || now;
-    if ((quietSince && now - quietSince > VAD.silenceMs) || now - rec.startedAt > VAD.maxMs) {
-      const r = rec; rec = null; loudSince = 0;
-      processing = true;
-      try {
-        const blob = await r.stop();
-        if (now - r.startedAt > 700) {
-          diag(`gravei ${now - r.startedAt} ms, ${blob.size} bytes, pico ${(r.peak || 0).toFixed(2)}; áudio ${sexta.audioRunning?.() ? "ativo" : "pausado"}`);
-          await handleAudio(blob, { requireWake: true });
-        }
-        else sexta.setState("listening", "ESCUTANDO");
-      } finally {
-        processing = false;
-      }
-    }
-  }, 50);
+  }, 500);
   return true;
 }
 
 async function stopListening() {
   continuous = false;
   clearInterval(vadTimer);
+  detachTap();
   await sexta.releaseMic();
   sexta.setState("idle", "MICROFONE MUDO");
 }
