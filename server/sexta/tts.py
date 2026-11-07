@@ -22,15 +22,24 @@ FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
 
 def to_wav(samples, rate: int) -> bytes:
     """Converte amostras float (-1..1) em WAV 16 bits mono."""
-    import numpy as np
+    try:
+        import numpy as np
 
-    pcm = (np.clip(np.asarray(samples, dtype="float32"), -1, 1) * 32767).astype("<i2")
+        pcm = (np.clip(np.asarray(samples, dtype="float32"), -1, 1) * 32767).astype("<i2").tobytes()
+    except ImportError:  # sem numpy (só nos testes): mais lento, mesmo resultado
+        import array
+        import sys
+
+        a = array.array("h", (int(max(-1.0, min(1.0, x)) * 32767) for x in samples))
+        if sys.byteorder == "big":
+            a.byteswap()
+        pcm = a.tobytes()
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(rate)
-        w.writeframes(pcm.tobytes())
+        w.writeframes(pcm)
     return buf.getvalue()
 
 
