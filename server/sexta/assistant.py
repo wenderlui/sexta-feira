@@ -147,6 +147,9 @@ async def news_search(query: str, max_results: int = 6) -> list[dict[str, str]]:
     ]
 
 
+NUM_CTX = 8192
+
+
 class Assistant:
     def __init__(self, client: httpx.AsyncClient, settings: Settings, search=web_search,
                  news=news_search):
@@ -163,7 +166,7 @@ class Assistant:
             "stream": False,
             # O modelo de conversa fica sempre na GPU; o de visão sai depois de 10 min.
             "keep_alive": -1 if model == self.s.chat_model else "10m",
-            "options": {"temperature": 0.6, "num_ctx": 8192},
+            "options": {"temperature": 0.6, "num_ctx": NUM_CTX},
         }
         if model.startswith("qwen3"):
             body["think"] = False
@@ -233,7 +236,9 @@ class Assistant:
         """Carrega o modelo de conversa na GPU para a primeira pergunta não esperar."""
         r = await self.client.post(
             f"{self.s.ollama_url}/api/generate",
-            json={"model": self.s.chat_model, "prompt": "", "keep_alive": -1},
+            # Mesmo num_ctx das conversas: senão o Ollama recarrega o modelo na 1ª pergunta (~8 s).
+            json={"model": self.s.chat_model, "prompt": "", "keep_alive": -1,
+                  "options": {"num_ctx": NUM_CTX}},
             timeout=300,
         )
         r.raise_for_status()
