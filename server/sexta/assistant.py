@@ -18,8 +18,10 @@ Fale sempre em português do Brasil, de forma natural, curta e direta, como numa
 no máximo 3 frases, a não ser que ele peça detalhes. Não use markdown, listas, emojis nem tabelas,
 porque sua resposta será lida em voz alta. Escreva números e valores de um jeito fácil de falar.
 Você roda localmente no computador dele e aparece num iPad que funciona como visor.
-Quando precisar de informação atual (notícias, resultados, preços que não estão abaixo,
-qualquer fato recente), use a ferramenta buscar_web antes de responder e cite a fonte em poucas palavras.
+Quando precisar de informação atual (resultados, preços que não estão abaixo, qualquer fato recente),
+use a ferramenta buscar_web antes de responder. Para notícias e manchetes, use buscar_noticias e
+conte as 3 principais em uma frase curta cada, dizendo o veículo. Responda com o conteúdo encontrado,
+nunca mande o usuário procurar em sites.
 Nunca invente dados. Se não souber, diga que não sabe.
 Ações fora do computador (pagar, enviar mensagem, comprar) você nunca faz sozinha: só sugere."""
 
@@ -32,6 +34,21 @@ SEARCH_TOOL = {
             "type": "object",
             "properties": {
                 "consulta": {"type": "string", "description": "O que pesquisar, em poucas palavras."}
+            },
+            "required": ["consulta"],
+        },
+    },
+}
+
+NEWS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "buscar_noticias",
+        "description": "Busca notícias recentes (últimas 24 horas) e devolve manchete, resumo, veículo e data.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "consulta": {"type": "string", "description": "Assunto, ex.: 'Brasil', 'economia', 'Flamengo'."}
             },
             "required": ["consulta"],
         },
@@ -102,11 +119,36 @@ async def web_search(query: str, max_results: int = 5) -> list[dict[str, str]]:
     ]
 
 
+async def news_search(query: str, max_results: int = 6) -> list[dict[str, str]]:
+    """Notícias das últimas 24 h pelo DuckDuckGo News; se vier vazio, amplia para a semana."""
+    try:
+        from ddgs import DDGS
+    except ImportError:  # pragma: no cover
+        return [{"title": "Notícias indisponíveis", "body": "Instale o pacote ddgs.", "href": ""}]
+
+    def _run(limit: str):
+        with DDGS() as d:
+            return list(d.news(query or "Brasil", region="br-pt", timelimit=limit,
+                               max_results=max_results))
+
+    try:
+        rows = await asyncio.to_thread(_run, "d") or await asyncio.to_thread(_run, "w")
+    except Exception as exc:
+        return [{"title": "Falha na busca de notícias", "body": str(exc), "href": ""}]
+    return [
+        {"title": r.get("title", ""), "body": r.get("body", ""), "href": r.get("url", ""),
+         "source": r.get("source", ""), "date": r.get("date", "")}
+        for r in rows
+    ]
+
+
 class Assistant:
-    def __init__(self, client: httpx.AsyncClient, settings: Settings, search=web_search):
+    def __init__(self, client: httpx.AsyncClient, settings: Settings, search=web_search,
+                 news=news_search):
         self.client = client
         self.s = settings
         self.search = search
+        self.news = news
 
     async def _ollama_chat(self, model: str, messages: list[dict], tools=None) -> dict:
         body: dict[str, Any] = {
@@ -152,7 +194,7 @@ class Assistant:
 
         msgs: list[dict[str, Any]] = [system, *history]
         for _ in range(3):  # até 3 rodadas de ferramenta
-            msg = await self._ollama_chat(self.s.chat_model, msgs, tools=[SEARCH_TOOL])
+            msg = await self._ollama_chat(self.s.chat_model, msgs, tools=[SEARCH_TOOL, NEWS_TOOL])
             calls = msg.get("tool_calls") or []
             if not calls:
                 return {"text": _strip_think(msg.get("content", "")), "model": self.s.chat_model,
@@ -166,8 +208,10 @@ class Assistant:
                         args = json.loads(args)
                     except json.JSONDecodeError:
                         args = {"consulta": args}
-                if fn.get("name") == "buscar_web":
-                    results = await self.search(args.get("consulta", ""))
+                name = fn.get("name")
+                if name in ("buscar_web", "buscar_noticias"):
+                    fn_search = self.search if name == "buscar_web" else self.news
+                    results = await fn_search(args.get("consulta", ""))
                     sources.extend(r for r in results if r.get("href"))
                     content = json.dumps(results, ensure_ascii=False)[:6000]
                 else:

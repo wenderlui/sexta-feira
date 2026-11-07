@@ -104,9 +104,22 @@ def search():
     return FakeSearch()
 
 
+class FakeNews(FakeSearch):
+    async def __call__(self, query: str):
+        self.queries.append(query)
+        return [{"title": "Copom mantém juros", "body": "Decisão unânime.", "source": "g1",
+                 "date": "2026-11-07", "href": "https://g1.globo.com/economia/copom"}]
+
+
 @pytest.fixture
-def client(upstream, search):
+def news():
+    return FakeNews()
+
+
+@pytest.fixture
+def client(upstream, search, news):
     http = httpx.AsyncClient(transport=httpx.MockTransport(upstream.handler))
-    app = create_app(settings=Settings(), client=http, search=search, transcriber=FakeEars())
+    app = create_app(settings=Settings(), client=http, search=search, news=news,
+                     transcriber=FakeEars())
     with TestClient(app) as c:
         yield c

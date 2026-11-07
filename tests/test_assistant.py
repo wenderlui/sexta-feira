@@ -76,3 +76,16 @@ def test_helpers():
     assert wants_vision("Olha isso aqui")
     assert not wants_vision("qual a cotação do dólar")
     assert _strip_think("<think>hmm</think> Oi!") == "Oi!"
+
+
+def test_news_tool_returns_headlines_with_sources(client, upstream, news, search):
+    upstream.ollama_replies = [
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "buscar_noticias", "arguments": {"consulta": "Brasil"}}}]},
+        {"role": "assistant", "content": "Segundo o g1, o Copom manteve os juros."},
+    ]
+    r = _ask(client, "Quais as principais notícias de hoje?").json()
+    assert news.queries == ["Brasil"] and search.queries == []
+    assert r["sources"][0]["href"] == "https://g1.globo.com/economia/copom"
+    tools = [t["function"]["name"] for t in upstream.ollama_bodies[0]["tools"]]
+    assert tools == ["buscar_web", "buscar_noticias"]

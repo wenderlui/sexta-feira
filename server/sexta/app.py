@@ -36,6 +36,7 @@ def create_app(
     client: httpx.AsyncClient | None = None,
     web_dir: Path = WEB_DIR,
     search=None,
+    news=None,
     transcriber: Transcriber | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
@@ -55,7 +56,7 @@ def create_app(
         state["client"] = client or httpx.AsyncClient(
             headers={"User-Agent": "sexta-feira/0.1"}
         )
-        kwargs = {"search": search} if search else {}
+        kwargs = {k: v for k, v in (("search", search), ("news", news)) if v}
         state["assistant"] = Assistant(state["client"], settings, **kwargs)
         if transcriber is None and ears.available:
             # Carrega o Whisper em segundo plano para a primeira fala não demorar.
