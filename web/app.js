@@ -338,6 +338,24 @@ document.addEventListener("pointerdown", resumeAudio);
 document.addEventListener("touchend", resumeAudio);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) resumeAudio(); });
 sexta.audioRunning = () => audioCtx?.state === "running";
+sexta.resumeAudio = resumeAudio;
+// Depois que a voz do iPad fala, o iOS pode pausar o áudio ou silenciar o microfone.
+// Isto confere e, se preciso, reabre o microfone.
+sexta.reviveMic = async () => {
+  const track = sexta.micStream?.getAudioTracks()[0];
+  const info = `áudio ${audioCtx?.state || "fechado"}; mic ${track ? track.readyState + (track.muted ? " mudo" : "") : "nenhum"}`;
+  if (!track) return info;
+  if (track.readyState !== "live" || track.muted) {
+    await releaseMic();
+    await ensureMic();
+    return `${info} -> reaberto (áudio ${audioCtx?.state})`;
+  }
+  if (audioCtx && audioCtx.state !== "running") {
+    await audioCtx.resume().catch(() => {});
+    return `${info} -> retomado (${audioCtx.state})`;
+  }
+  return info;
+};
 
 async function releaseMic() {
   if (!sexta.micStream) return;

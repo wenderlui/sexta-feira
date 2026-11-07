@@ -5,7 +5,7 @@ const sexta = window.sexta;
 // Aceita também como o Whisper às vezes escreve: "sexta feira", "sesta", "cesta", "6ª feira".
 const WAKE = /^[\s,.!?:"'-]*(?:(?:ei|oi|ok|olá|ola|hey)[\s,]+)?(?:sexta|sesta|cesta|sexto|6ª|6a)(?:[\s-]*feira)?\b[\s,.!?:]*/i;
 const WAKE_ANYWHERE = /\b(?:sexta|sesta|cesta)(?:[\s-]*feira)?\b[\s,.!?:]*/i;
-const FOLLOW_UP_MS = 10000;      // depois de responder, aceita a próxima fala sem "Sexta-feira"
+const FOLLOW_UP_MS = 20000;      // depois de responder, aceita a próxima fala sem "Sexta-feira"
 const HISTORY_KEY = "sexta.chat.v1";
 
 let history = [];
@@ -84,7 +84,7 @@ function speak(text) {
     if (voice) u.voice = voice;
     u.rate = 1.05;
     // Se o iOS não avisar que terminou, não deixamos a escuta travada.
-    const guard = setTimeout(done, 4000 + text.length * 90);
+    const guard = setTimeout(done, 5000 + text.length * 150);
     function done() { clearTimeout(guard); resolve(); }
     u.onend = u.onerror = done;
     sexta.setState("speaking");
@@ -125,13 +125,21 @@ async function ask(text) {
     remember("assistant", reply);
     await speak(reply);
     lastReplyAt = Date.now();
+    if (continuous) {
+      // O iOS costuma pausar o microfone enquanto fala; reabre antes de ouvir de novo.
+      try { diag(`depois de falar: ${await sexta.reviveMic()}`); }
+      catch (e) { diag(`não reabriu o microfone: ${e.message}`); }
+    }
   } catch (e) {
     console.warn(e);
     diag(`chat falhou: ${e.message}`);
     addMsg("sys", `Não consegui responder: ${e.message}`);
   } finally {
     busy = false;
-    sexta.setState(continuous ? "listening" : "idle", continuous ? "ESCUTANDO" : undefined);
+    sexta.setState(continuous ? "listening" : "idle", continuous ? (lastReplyAt ? "PODE CONTINUAR" : "ESCUTANDO") : undefined);
+    if (continuous) setTimeout(() => {
+      if (continuous && !busy && Date.now() - lastReplyAt >= FOLLOW_UP_MS) sexta.setState("listening", "ESCUTANDO");
+    }, FOLLOW_UP_MS + 100);
   }
 }
 sexta.ask = ask;

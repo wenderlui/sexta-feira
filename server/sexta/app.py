@@ -90,6 +90,15 @@ def create_app(
 
     app = FastAPI(title="Sexta-feira", version="0.1.0", lifespan=lifespan)
 
+    @app.middleware("http")
+    async def no_stale_web(request: Request, call_next):
+        # O iPad guarda arquivos em cache por conta própria; "no-cache" o obriga a
+        # conferir com o PC (resposta 304 rápida quando nada mudou).
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     async def _serve(key: str, ttl: int, fetch):
         try:
             value, cached = await cache.get_or_fetch(

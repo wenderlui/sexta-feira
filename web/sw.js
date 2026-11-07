@@ -1,9 +1,9 @@
 // Service worker: guarda a "casca" do app para abrir rápido; dados da API sempre da rede.
-const CACHE = "sexta-v5";
+const CACHE = "sexta-v6";
 const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/format.js", "/voice.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" })))));
   self.skipWaiting();
 });
 
@@ -19,7 +19,8 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/") || event.request.method !== "GET") return;
   // Rede primeiro, cache como reserva (para não ficar preso numa versão antiga).
   event.respondWith(
-    fetch(event.request)
+    // "no-cache": sempre confere com o PC, para o iPad não ficar com um app.js velho.
+    fetch(event.request.mode === "navigate" ? event.request.url : event.request, { cache: "no-cache" })
       .then((resp) => {
         const copy = resp.clone();
         caches.open(CACHE).then((c) => c.put(event.request, copy));

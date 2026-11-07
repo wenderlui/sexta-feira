@@ -90,3 +90,7 @@ def test_ipad_diagnostic_log(client, caplog):
         r = client.post("/api/log", json={"msg": "escuta ligada"})
     assert r.status_code == 200
     assert "escuta ligada" in caplog.text
+
+
+def test_web_files_are_revalidated(client):
+    assert client.get("/voice.js").headers["cache-control"] == "no-cache"
