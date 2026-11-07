@@ -64,7 +64,7 @@ async def fetch_weather(client: httpx.AsyncClient, s: Settings) -> dict[str, Any
         "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
         "weather_code,wind_speed_10m",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
-        "precipitation_probability_max",
+        "precipitation_probability_max,sunrise,sunset",
         "forecast_days": 3,
     }
     r = await client.get(OPEN_METEO_URL, params=params, timeout=10)
@@ -82,6 +82,8 @@ async def fetch_weather(client: httpx.AsyncClient, s: Settings) -> dict[str, Any
                 "max": _at(daily.get("temperature_2m_max"), i),
                 "min": _at(daily.get("temperature_2m_min"), i),
                 "rain_chance": _at(daily.get("precipitation_probability_max"), i),
+                "sunrise": _at(daily.get("sunrise"), i),
+                "sunset": _at(daily.get("sunset"), i),
                 "description": d_desc,
                 "icon": d_icon,
             }

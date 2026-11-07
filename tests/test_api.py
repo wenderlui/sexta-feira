@@ -10,6 +10,7 @@ def test_weather_lowell(client, upstream):
     assert w["temperature"] == 8.4
     assert w["description"] == "Nublado"
     assert [d["description"] for d in w["days"]] == ["Nublado", "Chuva fraca", "Céu limpo"]
+    assert w["days"][0]["sunset"] == "2026-11-07T16:24"
     req = upstream.last_request["api.open-meteo.com"]
     assert req.url.params["latitude"] == "42.6334"
     assert req.url.params["timezone"] == "America/New_York"

@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from . import providers
+from . import providers, system
+from .assistant import Assistant, wants_vision
 from .cache import TTLCache
 from .config import Settings
+from .speech import Transcriber
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(min_length=1)
+    image: str | None = None  # JPEG em base64 (sem o prefixo data:)
 
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
@@ -20,10 +35,19 @@ def create_app(
     settings: Settings | None = None,
     client: httpx.AsyncClient | None = None,
     web_dir: Path = WEB_DIR,
+    search=None,
+    transcriber: Transcriber | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     cache = TTLCache()
-    state: dict[str, httpx.AsyncClient] = {}
+    state: dict = {}
+    ears = transcriber or Transcriber(settings)
+
+    async def _warm():
+        try:
+            await ears.warm_up()
+        except Exception as exc:  # não impede o painel de funcionar
+            logging.getLogger("sexta").warning("Whisper não carregou: %s", exc)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -31,6 +55,11 @@ def create_app(
         state["client"] = client or httpx.AsyncClient(
             headers={"User-Agent": "sexta-feira/0.1"}
         )
+        kwargs = {"search": search} if search else {}
+        state["assistant"] = Assistant(state["client"], settings, **kwargs)
+        if transcriber is None and ears.available:
+            # Carrega o Whisper em segundo plano para a primeira fala não demorar.
+            state["warm"] = asyncio.create_task(_warm())
         try:
             yield
         finally:
@@ -76,6 +105,55 @@ def create_app(
                         "cached": crypto_data["cached"]}
             except (KeyError, ValueError, TypeError) as exc:
                 raise HTTPException(status_code=502, detail=f"Sem USDT/BRL: {exc}")
+
+    async def _panel() -> dict:
+        """Dados do painel para dar contexto à IA (o que falhar fica de fora)."""
+        out = {}
+        for key, fn in (("weather", weather), ("crypto", crypto), ("usdtbrl", usdtbrl)):
+            try:
+                out[key] = await fn()
+            except HTTPException:
+                pass
+        return out
+
+    @app.post("/api/chat")
+    async def chat(req: ChatRequest):
+        history = [m.model_dump() for m in req.messages]
+        image = req.image if req.image and wants_vision(history[-1]["content"]) else None
+        try:
+            return await state["assistant"].reply(history, await _panel(), image_b64=image)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Não consegui falar com o Ollama em {settings.ollama_url}: {exc}",
+            )
+
+    @app.post("/api/transcribe")
+    async def transcribe(request: Request):
+        if not ears.available:
+            raise HTTPException(status_code=503, detail=ears.error)
+        audio = await request.body()
+        if not audio:
+            raise HTTPException(status_code=400, detail="Áudio vazio.")
+        if len(audio) > 25 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Áudio muito grande.")
+        try:
+            return await ears.transcribe(audio)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Falha ao transcrever: {exc}")
+
+    @app.get("/api/assistant/status")
+    async def assistant_status():
+        return {**await state["assistant"].status(),
+                "chat_model": settings.chat_model,
+                "vision_model": settings.vision_model,
+                "stt_available": ears.available}
+
+    @app.get("/api/system")
+    async def system_stats():
+        return await system.snapshot()
 
     @app.get("/api/config")
     async def config():

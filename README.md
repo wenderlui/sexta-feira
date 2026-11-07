@@ -2,16 +2,22 @@
 
 Assistente pessoal de IA que roda no seu PC 24/7 e usa o iPad como visor.
 
-Esta é a **parte 1 da etapa 2**: o painel ao vivo para o iPad.
+## O que ela faz
 
-- Clima de Lowell, MA ([Open-Meteo](https://open-meteo.com/), gratuito e sem chave)
-- BTC, ETH, POL, UNI, DOT e LINK em US$ e R$, com variação de 24h ([CoinGecko](https://www.coingecko.com/))
-- USDT/BRL pela Binance, com reserva automática pelo CoinGecko (a Binance bloqueia IPs dos EUA)
-- Botões de **câmera** e **microfone** com indicador vermelho quando estão ligados
-- Instalável na tela de início do iPad (PWA), em tela cheia
+- **Visual de HUD futurista** feito para o iPad deitado: fundo animado (rede de partículas e grade
+  em movimento), núcleo com anéis girando que reage à sua voz, números animados e minigráficos.
+- **Painel ao vivo**: clima de Lowell, MA com nascer e pôr do sol ([Open-Meteo](https://open-meteo.com/)),
+  BTC, ETH, POL, UNI, DOT e LINK em US$ e R$ ([CoinGecko](https://www.coingecko.com/)),
+  USDT/BRL com conversor (Binance, com reserva pelo CoinGecko porque a Binance bloqueia IPs dos EUA).
+- **Sistema do PC**: uso de CPU, RAM, GPU e VRAM da RTX em tempo real.
+- **Conversa com a IA local** (Ollama, `qwen3:8b`), em português, sabendo o clima e as cotações do painel.
+- **Busca na internet** quando a pergunta precisa de informação atual (DuckDuckGo, sem chave), com as fontes.
+- **Visão**: com a câmera ligada, pergunte "o que você está vendo?" e ela analisa a imagem (`qwen2.5vl:7b`).
+- **Voz**: segure **FALAR** para conversar, ou ligue a **ESCUTA** e comece com "Sexta-feira…".
+  Ela ouve com o Whisper no PC e responde com a voz do iPad. **MUDO** silencia as respostas.
 
-A conversa por voz (Pipecat + Ollama + faster-whisper + Kokoro) é a parte 2.
-A pesquisa e a arquitetura completas estão em [docs/arquitetura.md](docs/arquitetura.md).
+Veja [docs/voz-e-ia.md](docs/voz-e-ia.md) para instalar a IA e a voz, e
+[docs/arquitetura.md](docs/arquitetura.md) para a pesquisa e as escolhas.
 
 ## Rodar rápido
 
@@ -34,6 +40,10 @@ microfone em HTTPS, e o Tailscale resolve isso.
 | `GET /api/weather` | Clima atual e 3 dias | 10 min |
 | `GET /api/crypto` | Preços das moedas configuradas | 5 min |
 | `GET /api/usdtbrl` | Cotação USDT/BRL | 1 min (Binance) ou 5 min (CoinGecko) |
+| `POST /api/chat` | Resposta da IA (`{messages, image?}`) | — |
+| `POST /api/transcribe` | Texto do áudio enviado (corpo = áudio) | — |
+| `GET /api/assistant/status` | Ollama online, modelos prontos, Whisper instalado | — |
+| `GET /api/system` | CPU, RAM, GPU e VRAM do PC | a cada 5 s no painel |
 | `GET /api/config` | Cidade, moedas e intervalos | — |
 | `GET /api/health` | `{"status": "ok"}` | — |
 
@@ -59,7 +69,7 @@ npm test        # formatação do painel (Node 20+)
 ## Estrutura
 
 ```
-server/sexta/   servidor FastAPI (config, cache, fontes de dados)
+server/sexta/   servidor FastAPI (config, cache, fontes de dados, IA, voz, sistema)
 web/            app do iPad (HTML, CSS, JS, service worker, manifest)
 tests/          testes do servidor
 web/tests/      testes do front-end

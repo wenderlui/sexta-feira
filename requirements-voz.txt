@@ -1,0 +1,6 @@
+# Ouvir com faster-whisper na GPU (NVIDIA). Instale depois do requirements.txt.
+-r requirements.txt
+faster-whisper>=1.1
+# Bibliotecas CUDA para a GPU no Windows/Linux (sem instalar o CUDA Toolkit inteiro)
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9,<10

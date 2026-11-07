@@ -7,86 +7,133 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Sexta-feira">
-  <meta name="theme-color" content="#0b0f14">
+  <meta name="theme-color" content="#02060d">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" href="icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <title>Sexta-feira</title>
 </head>
-<body>
+<body data-state="idle">
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div id="boot" class="boot" aria-hidden="true">
+    <div class="boot-ring"></div>
+    <div class="boot-text" id="boot-text">INICIALIZANDO SISTEMAS</div>
+  </div>
+
   <header class="topbar">
     <div class="brand">
-      <span class="orb" id="orb" aria-hidden="true"></span>
-      <span>Sexta-feira</span>
+      <span class="brand-name">SEXTA-FEIRA</span>
+      <span class="brand-sub" id="greeting">assistente pessoal</span>
     </div>
     <div class="clock">
-      <span id="clock-time">--:--</span>
-      <span id="clock-date" class="muted"></span>
+      <span id="clock-time">--:--<small>--</small></span>
+      <span id="clock-date"></span>
     </div>
-    <div class="status" id="status" role="status">Conectando…</div>
+    <div class="chips">
+      <span class="chip" id="chip-link"><i></i>LINK</span>
+      <span class="chip" id="chip-ai"><i></i>IA</span>
+      <span class="chip" id="chip-voice"><i></i>VOZ</span>
+      <span class="status" id="status" role="status"></span>
+    </div>
   </header>
 
-  <p class="rotate-hint small">A Sexta-feira foi feita para o iPad deitado. Gire para a horizontal.</p>
+  <p class="rotate-hint">A Sexta-feira foi feita para o iPad deitado. Gire para a horizontal.</p>
 
-  <main class="grid">
-    <section class="card weather" aria-labelledby="weather-title">
-      <h2 id="weather-title">Clima <span id="weather-city" class="muted"></span></h2>
+  <main class="hud">
+    <!-- Coluna esquerda -->
+    <section class="panel weather" aria-labelledby="weather-title">
+      <h2 id="weather-title"><span>CLIMA</span> <em id="weather-city"></em></h2>
       <div class="weather-now">
         <span id="weather-icon" class="big-icon">❔</span>
         <div>
-          <div class="temp"><span id="weather-temp">--</span>°C</div>
+          <div class="temp"><span id="weather-temp" class="num">--</span><sup>°C</sup></div>
           <div id="weather-desc" class="muted">Carregando…</div>
-          <div id="weather-extra" class="small muted"></div>
         </div>
       </div>
+      <div id="weather-extra" class="meta-row"></div>
       <ul id="weather-days" class="days"></ul>
+      <div class="sun" id="weather-sun"></div>
     </section>
 
-    <section class="card usdt" aria-labelledby="usdt-title">
-      <h2 id="usdt-title">USDT/BRL</h2>
-      <div class="price-big">R$ <span id="usdt-price">--</span></div>
-      <div id="usdt-meta" class="small muted"></div>
+    <section class="panel usdt" aria-labelledby="usdt-title">
+      <h2 id="usdt-title"><span>USDT / BRL</span> <em id="usdt-change"></em></h2>
+      <div class="price-big"><small>R$</small> <span id="usdt-price" class="num">--</span></div>
+      <svg id="usdt-spark" class="spark big" viewBox="0 0 200 48" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="convert" id="usdt-convert"></div>
+      <div id="usdt-meta" class="meta-row"></div>
     </section>
 
-    <section class="card crypto" aria-labelledby="crypto-title">
-      <h2 id="crypto-title">Cripto</h2>
+    <!-- Centro: núcleo + conversa -->
+    <section class="core-area" aria-label="Núcleo da Sexta-feira">
+      <div class="core" id="core">
+        <svg class="rings" viewBox="0 0 300 300" aria-hidden="true">
+          <defs>
+            <radialGradient id="core-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#bff4ff" stop-opacity="1"/>
+              <stop offset="35%" stop-color="#36d6ff" stop-opacity=".85"/>
+              <stop offset="70%" stop-color="#0a6fa8" stop-opacity=".25"/>
+              <stop offset="100%" stop-color="#02060d" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle class="r r1" cx="150" cy="150" r="140"/>
+          <circle class="r r2" cx="150" cy="150" r="124"/>
+          <circle class="r r3" cx="150" cy="150" r="108"/>
+          <circle class="r r4" cx="150" cy="150" r="92"/>
+          <g class="ticks">
+            <circle class="r r5" cx="150" cy="150" r="132"/>
+          </g>
+          <circle class="glow" cx="150" cy="150" r="80" fill="url(#core-glow)"/>
+        </svg>
+        <video id="camera-preview" playsinline muted autoplay hidden></video>
+        <div class="core-label" id="core-label">EM ESPERA</div>
+      </div>
+
+      <div class="chat">
+        <ol id="chat-log" class="chat-log" aria-live="polite"></ol>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <input id="chat-input" type="text" placeholder="Escreva ou segure FALAR…" aria-label="Mensagem">
+          <button type="submit" aria-label="Enviar">➤</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Coluna direita -->
+    <section class="panel crypto" aria-labelledby="crypto-title">
+      <h2 id="crypto-title"><span>CRIPTO</span> <em id="crypto-meta"></em></h2>
       <table class="coins">
-        <thead><tr><th>Moeda</th><th>US$</th><th>R$</th><th>24h</th></tr></thead>
-        <tbody id="crypto-rows"><tr><td colspan="4" class="muted">Carregando…</td></tr></tbody>
+        <thead><tr><th>ATIVO</th><th>US$</th><th>R$</th><th>24H</th><th></th></tr></thead>
+        <tbody id="crypto-rows"><tr><td colspan="5" class="muted">Carregando…</td></tr></tbody>
       </table>
-      <div id="crypto-meta" class="small muted"></div>
     </section>
 
-    <section class="card vision" aria-labelledby="vision-title">
-      <h2 id="vision-title">Visão</h2>
-      <video id="camera-preview" playsinline muted autoplay hidden></video>
-      <p id="camera-off" class="muted">Câmera desligada.</p>
-    </section>
-
-    <section class="card chat" aria-labelledby="chat-title">
-      <h2 id="chat-title">Conversa</h2>
+    <section class="panel system" aria-labelledby="system-title">
+      <h2 id="system-title"><span>SISTEMA</span> <em id="system-uptime"></em></h2>
+      <div class="bars">
+        <div class="bar"><label>CPU</label><div class="track"><div id="bar-cpu"></div></div><span id="val-cpu">--</span></div>
+        <div class="bar"><label>RAM</label><div class="track"><div id="bar-ram"></div></div><span id="val-ram">--</span></div>
+        <div class="bar"><label>GPU</label><div class="track"><div id="bar-gpu"></div></div><span id="val-gpu">--</span></div>
+        <div class="bar"><label>VRAM</label><div class="track"><div id="bar-vram"></div></div><span id="val-vram">--</span></div>
+      </div>
+      <div class="meta-row" id="system-meta"></div>
       <div class="meter" aria-label="Nível do microfone"><div id="mic-level"></div></div>
-      <p class="muted small">A conversa por voz com a IA chega na próxima parte da etapa 2.
-        Por enquanto, o microfone só mostra o nível do som para testar o acesso.</p>
     </section>
   </main>
 
   <nav class="controls" aria-label="Controles">
-    <button id="btn-camera" class="toggle" aria-pressed="false">
-      <span class="dot"></span> Câmera
-    </button>
-    <button id="btn-mic" class="toggle" aria-pressed="false">
-      <span class="dot"></span> Microfone
-    </button>
-    <button id="btn-fullscreen" class="ghost">Tela cheia</button>
+    <button id="btn-camera" class="toggle" aria-pressed="false"><span class="dot"></span>CÂMERA</button>
+    <button id="btn-mic" class="toggle" aria-pressed="false" title="Escuta contínua: diga &quot;Sexta-feira…&quot;"><span class="dot"></span>ESCUTA</button>
+    <button id="btn-talk" class="talk" aria-label="Segure para falar">FALAR</button>
+    <button id="btn-mute" class="toggle" aria-pressed="false"><span class="dot"></span>MUDO</button>
+    <button id="btn-fullscreen" class="ghost">TELA CHEIA</button>
   </nav>
 
-  <footer class="credits small muted">
-    Dados: <a href="https://open-meteo.com/">Open-Meteo</a> ·
-    <a href="https://www.coingecko.com/">CoinGecko</a> · Binance
-  </footer>
-
   <script type="module" src="app.js"></script>
+  <script type="module" src="voice.js"></script>
 </body>
 </html>

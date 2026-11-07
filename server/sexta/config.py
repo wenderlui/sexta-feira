@@ -53,6 +53,10 @@ class Settings:
     weather_ttl: int = 600
     crypto_ttl: int = 300
     usdtbrl_ttl: int = 60
+    ollama_url: str = "http://127.0.0.1:11434"
+    chat_model: str = "qwen3:8b"
+    vision_model: str = "qwen2.5vl:7b"
+    whisper_model: str = "large-v3-turbo"
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "Settings":
@@ -68,4 +72,8 @@ class Settings:
             weather_ttl=int(env.get("SEXTA_WEATHER_TTL", cls.weather_ttl)),
             crypto_ttl=int(env.get("SEXTA_CRYPTO_TTL", cls.crypto_ttl)),
             usdtbrl_ttl=int(env.get("SEXTA_USDTBRL_TTL", cls.usdtbrl_ttl)),
+            ollama_url=env.get("OLLAMA_URL", cls.ollama_url).rstrip("/"),
+            chat_model=env.get("SEXTA_CHAT_MODEL", cls.chat_model),
+            vision_model=env.get("SEXTA_VISION_MODEL", cls.vision_model),
+            whisper_model=env.get("SEXTA_WHISPER_MODEL", cls.whisper_model),
         )
