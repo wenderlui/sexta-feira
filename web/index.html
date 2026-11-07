@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sexta-feira">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Sexta-feira</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="orb" id="orb" aria-hidden="true"></span>
+      <span>Sexta-feira</span>
+    </div>
+    <div class="clock">
+      <span id="clock-time">--:--</span>
+      <span id="clock-date" class="muted"></span>
+    </div>
+    <div class="status" id="status" role="status">Conectando…</div>
+  </header>
+
+  <main class="grid">
+    <section class="card weather" aria-labelledby="weather-title">
+      <h2 id="weather-title">Clima <span id="weather-city" class="muted"></span></h2>
+      <div class="weather-now">
+        <span id="weather-icon" class="big-icon">❔</span>
+        <div>
+          <div class="temp"><span id="weather-temp">--</span>°C</div>
+          <div id="weather-desc" class="muted">Carregando…</div>
+          <div id="weather-extra" class="small muted"></div>
+        </div>
+      </div>
+      <ul id="weather-days" class="days"></ul>
+    </section>
+
+    <section class="card usdt" aria-labelledby="usdt-title">
+      <h2 id="usdt-title">USDT/BRL</h2>
+      <div class="price-big">R$ <span id="usdt-price">--</span></div>
+      <div id="usdt-meta" class="small muted"></div>
+    </section>
+
+    <section class="card crypto" aria-labelledby="crypto-title">
+      <h2 id="crypto-title">Cripto</h2>
+      <table class="coins">
+        <thead><tr><th>Moeda</th><th>US$</th><th>R$</th><th>24h</th></tr></thead>
+        <tbody id="crypto-rows"><tr><td colspan="4" class="muted">Carregando…</td></tr></tbody>
+      </table>
+      <div id="crypto-meta" class="small muted"></div>
+    </section>
+
+    <section class="card vision" aria-labelledby="vision-title">
+      <h2 id="vision-title">Visão</h2>
+      <video id="camera-preview" playsinline muted autoplay hidden></video>
+      <p id="camera-off" class="muted">Câmera desligada.</p>
+    </section>
+
+    <section class="card chat" aria-labelledby="chat-title">
+      <h2 id="chat-title">Conversa</h2>
+      <div class="meter" aria-label="Nível do microfone"><div id="mic-level"></div></div>
+      <p class="muted small">A conversa por voz com a IA chega na próxima parte da etapa 2.
+        Por enquanto, o microfone só mostra o nível do som para testar o acesso.</p>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="Controles">
+    <button id="btn-camera" class="toggle" aria-pressed="false">
+      <span class="dot"></span> Câmera
+    </button>
+    <button id="btn-mic" class="toggle" aria-pressed="false">
+      <span class="dot"></span> Microfone
+    </button>
+    <button id="btn-fullscreen" class="ghost">Tela cheia</button>
+  </nav>
+
+  <footer class="credits small muted">
+    Dados: <a href="https://open-meteo.com/">Open-Meteo</a> ·
+    <a href="https://www.coingecko.com/">CoinGecko</a> · Binance
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+:root {
+  --bg: #0b0f14;
+  --card: #121922;
+  --line: #1f2a36;
+  --text: #e6edf3;
+  --muted: #8b98a5;
+  --accent: #3fb6ff;
+  --up: #3ddc84;
+  --down: #ff6b6b;
+  --live: #ff4d4d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  padding: env(safe-area-inset-top) 16px calc(88px + env(safe-area-inset-bottom));
+}
+
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.2rem; }
+
+.orb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #9be1ff, var(--accent) 60%, #0a4d7a);
+  box-shadow: 0 0 14px var(--accent);
+}
+.orb.listening { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.25); box-shadow: 0 0 24px var(--accent); } }
+
+.clock { display: flex; flex-direction: column; align-items: center; }
+#clock-time { font-size: 1.8rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.status { font-size: 0.85rem; color: var(--muted); text-align: right; min-width: 120px; }
+.status.error { color: var(--down); }
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas:
+    "weather usdt vision"
+    "crypto crypto chat";
+}
+.weather { grid-area: weather; }
+.usdt { grid-area: usdt; }
+.crypto { grid-area: crypto; }
+.vision { grid-area: vision; }
+.chat { grid-area: chat; }
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "weather usdt" "crypto crypto" "vision chat";
+  }
+}
+@media (max-width: 600px) {
+  .grid { grid-template-columns: 1fr; grid-template-areas: "weather" "usdt" "crypto" "vision" "chat"; }
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  min-width: 0;
+}
+.card h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 600; }
+
+.weather-now { display: flex; align-items: center; gap: 16px; }
+.big-icon { font-size: 3rem; }
+.temp { font-size: 2.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.days { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.days li { background: var(--bg); border-radius: 10px; padding: 8px; text-align: center; font-size: 0.85rem; }
+
+.price-big { font-size: 2.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.coins { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.coins th { text-align: right; color: var(--muted); font-weight: 500; font-size: 0.8rem; padding: 4px 8px; }
+.coins th:first-child, .coins td:first-child { text-align: left; }
+.coins td { text-align: right; padding: 8px; border-top: 1px solid var(--line); }
+.up { color: var(--up); }
+.down { color: var(--down); }
+
+#camera-preview { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
+
+.meter { height: 10px; background: var(--bg); border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+#mic-level { height: 100%; width: 0; background: var(--accent); transition: width 80ms linear; }
+
+.controls {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center; gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(11, 15, 20, 0.92);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+.controls button {
+  font: inherit; font-weight: 600; color: var(--text);
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 999px; padding: 12px 22px; min-height: 48px;
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.toggle .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.toggle[aria-pressed="true"] { border-color: var(--live); }
+.toggle[aria-pressed="true"] .dot { background: var(--live); box-shadow: 0 0 8px var(--live); }
+.ghost { background: transparent !important; }
+
+.credits { text-align: center; margin-top: 16px; }

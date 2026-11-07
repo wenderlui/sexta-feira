@@ -1,1 +1,68 @@
-# sexta-feira
+# Sexta-feira
+
+Assistente pessoal de IA que roda no seu PC 24/7 e usa o iPad como visor.
+
+Esta é a **parte 1 da etapa 2**: o painel ao vivo para o iPad.
+
+- Clima de Lowell, MA ([Open-Meteo](https://open-meteo.com/), gratuito e sem chave)
+- BTC, ETH, POL, UNI, DOT e LINK em US$ e R$, com variação de 24h ([CoinGecko](https://www.coingecko.com/))
+- USDT/BRL pela Binance, com reserva automática pelo CoinGecko (a Binance bloqueia IPs dos EUA)
+- Botões de **câmera** e **microfone** com indicador vermelho quando estão ligados
+- Instalável na tela de início do iPad (PWA), em tela cheia
+
+A conversa por voz (Pipecat + Ollama + faster-whisper + Kokoro) é a parte 2.
+A pesquisa e a arquitetura completas estão em [docs/arquitetura.md](docs/arquitetura.md).
+
+## Rodar rápido
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate   |   Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env        # opcional: ajuste cidade, moedas e chave do CoinGecko
+uvicorn sexta.app:app --app-dir server --host 127.0.0.1 --port 8000
+```
+
+Abra http://localhost:8000 no PC. Para usar no iPad com câmera e microfone, siga
+[docs/instalacao-windows.md](docs/instalacao-windows.md): o Safari só libera câmera e
+microfone em HTTPS, e o Tailscale resolve isso.
+
+## API
+
+| Rota | O que devolve | Atualização |
+| --- | --- | --- |
+| `GET /api/weather` | Clima atual e 3 dias | 10 min |
+| `GET /api/crypto` | Preços das moedas configuradas | 5 min |
+| `GET /api/usdtbrl` | Cotação USDT/BRL | 1 min (Binance) ou 5 min (CoinGecko) |
+| `GET /api/config` | Cidade, moedas e intervalos | — |
+| `GET /api/health` | `{"status": "ok"}` | — |
+
+As respostas ficam em cache no servidor, então vários aparelhos abertos não gastam
+mais chamadas. Se uma API cair, o painel mostra o último valor por até 10 vezes o
+intervalo normal.
+
+## Configuração (`.env`)
+
+Veja [.env.example](.env.example). Para trocar as moedas, use
+`SEXTA_COINS=BTC:bitcoin,ETH:ethereum,...` com o id de cada moeda no CoinGecko.
+A chave gratuita do plano Demo do CoinGecko (`COINGECKO_API_KEY`) é opcional, mas
+evita bloqueios; o plano dá 10 mil chamadas por mês, e o intervalo de 5 min usa cerca de 8.700.
+
+## Testes
+
+```bash
+pip install -r requirements-dev.txt
+pytest          # servidor: APIs simuladas, sem internet
+npm test        # formatação do painel (Node 20+)
+```
+
+## Estrutura
+
+```
+server/sexta/   servidor FastAPI (config, cache, fontes de dados)
+web/            app do iPad (HTML, CSS, JS, service worker, manifest)
+tests/          testes do servidor
+web/tests/      testes do front-end
+scripts/        iniciar.ps1 para o Windows
+docs/           arquitetura e instalação
+```
