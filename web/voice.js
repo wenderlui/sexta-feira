@@ -333,7 +333,15 @@ async function handleAudio(blob, { requireWake }) {
       return;
     }
   }
-  text = text.replace(WAKE, "").replace(WAKE_ANYWHERE, "").trim() || "Oi";
+  text = text.replace(WAKE, "").replace(WAKE_ANYWHERE, "").replace(/^[\s,.!?:]+/, "").trim();
+  if (!text) {
+    // Só chamou o nome: responde rápido e espera a pergunta.
+    addMsg("assistant", "Pois não?");
+    await speak("Pois não?");
+    lastReplyAt = Date.now();
+    sexta.setState("listening", "PODE CONTINUAR");
+    return;
+  }
   await ask(text);
 }
 

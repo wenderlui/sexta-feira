@@ -437,7 +437,19 @@ async function start() {
   });
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch((e) => console.warn(e));
+    // Atualiza sozinho: quando o PC tem uma versão nova, o app recarrega (sem precisar fechar e abrir).
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      const check = () => reg.update().catch(() => {});
+      setInterval(check, 5 * 60 * 1000);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
+    }).catch((e) => console.warn(e));
   }
 }
 
