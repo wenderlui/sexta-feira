@@ -105,3 +105,24 @@ def test_to_wav_header():
     data = to_wav([0.0, 0.5, -0.5], 24000)
     with wave.open(io.BytesIO(data)) as w:
         assert w.getframerate() == 24000 and w.getnframes() == 3
+
+
+def test_speaker_falls_back_to_local_voice(monkeypatch):
+    import asyncio
+    from sexta.config import Settings
+    from sexta import tts
+
+    sp = tts.Speaker(Settings())
+    monkeypatch.setattr(tts.Edge, "installed", staticmethod(lambda: True))
+    monkeypatch.setattr(tts.Kokoro, "installed", staticmethod(lambda: True))
+
+    async def offline(self, text):
+        raise OSError("sem internet")
+
+    async def local(self, text):
+        return b"RIFF", "audio/wav"
+
+    monkeypatch.setattr(tts.Edge, "speak", offline)
+    monkeypatch.setattr(tts.Kokoro, "speak", local)
+    assert asyncio.run(sp.speak("oi")) == (b"RIFF", "audio/wav")
+    assert sp.last_engine == "kokoro"

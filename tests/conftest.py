@@ -111,7 +111,7 @@ class FakeMouth:
 
     async def speak(self, text: str) -> bytes:
         self.said.append(text)
-        return b"RIFF....WAVEfmt "
+        return b"RIFF....WAVEfmt ", "audio/wav"
 
 
 @pytest.fixture

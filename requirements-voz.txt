@@ -8,3 +8,5 @@ nvidia-cublas-cu12
 nvidia-cudnn-cu12>=9,<10
 # Falar: Kokoro (voz pt-BR local). Os modelos baixam sozinhos para models/ na primeira vez.
 kokoro-onnx>=0.4
+# Voz natural da Microsoft (gratuita, precisa de internet). Sem internet, usa o Kokoro.
+edge-tts>=7

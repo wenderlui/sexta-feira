@@ -95,9 +95,9 @@ def create_app(
             try:
                 await mouth.warm_up()
                 if mouth.available:
-                    log.info("Voz Kokoro (%s) pronta", settings.tts_voice)
+                    log.info("Voz pronta: %s", mouth.last_engine)
             except Exception as exc:
-                log.warning("Voz Kokoro não carregou: %s", exc)
+                log.warning("Voz não carregou: %s", exc)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -217,11 +217,12 @@ def create_app(
         if not text:
             raise HTTPException(status_code=400, detail="Texto vazio.")
         try:
-            audio = await mouth.speak(text)
+            audio, media_type = await mouth.speak(text)
         except Exception as exc:
             logging.getLogger("sexta").exception("Falha ao gerar a voz")
             raise HTTPException(status_code=500, detail=f"Falha ao gerar a voz: {exc}")
-        return Response(content=audio, media_type="audio/wav")
+        return Response(content=audio, media_type=media_type,
+                        headers={"X-Sexta-Voz": getattr(mouth, "last_engine", None) or "?"})
 
     @app.post("/api/log")
     async def client_log(entry: ClientLog):

@@ -64,7 +64,7 @@ Para respostas mais rápidas, `qwen3:4b`; para entender melhor fala com ruído, 
 - Placar de futebol não é confiável com a busca atual (ficou para depois).
 - A busca usa o DuckDuckGo sem chave, que pode limitar muitas buscas seguidas.
 
-## Voz da Sexta-feira (Kokoro no PC)
+## Voz da Sexta-feira
 
 No iPad, a voz do próprio Safari fica muda enquanto o microfone está gravando. Por isso a
 resposta falada é gerada no PC com o [Kokoro](https://github.com/thewh1teagle/kokoro-onnx)
@@ -74,3 +74,10 @@ Se o Kokoro não estiver instalado, o iPad volta para a voz do Safari.
 
 Configuração opcional no `.env`: `SEXTA_TTS_VOICE` (ex.: `pm_alex` para voz masculina) e
 `SEXTA_TTS_SPEED` (padrão 1.05).
+
+### Voz natural (padrão)
+
+Por padrão a voz é a `pt-BR-FranciscaNeural` da Microsoft, via [edge-tts](https://github.com/rany2/edge-tts):
+gratuita, bem natural e rápida, mas o texto da resposta vai para a Microsoft gerar o áudio.
+Sem internet, ou se ela falhar, o PC usa o Kokoro local. Para usar só a voz local, coloque
+`SEXTA_TTS_ENGINE=kokoro` no `.env`. Outra voz: `SEXTA_EDGE_VOICE=pt-BR-ThalitaMultilingualNeural`.

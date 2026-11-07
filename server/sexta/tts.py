@@ -55,46 +55,106 @@ def _download(url: str, path: Path) -> None:
     tmp.replace(path)
 
 
-class Speaker:
+class Kokoro:
+    """Voz local (CPU ou GPU), funciona sem internet."""
+
     def __init__(self, settings: Settings, models_dir: Path = MODELS_DIR):
         self.s = settings
         self.dir = models_dir
         self._engine = None
         self._lock = threading.Lock()
-        self.error: str | None = None
 
-    @property
-    def available(self) -> bool:
+    @staticmethod
+    def installed() -> bool:
         try:
             import kokoro_onnx  # noqa: F401
         except ImportError:
-            self.error = "kokoro-onnx não instalado (pip install -r requirements-voz.txt)"
             return False
         return True
 
     def _load(self):
         with self._lock:
             if self._engine is None:
-                from kokoro_onnx import Kokoro
+                from kokoro_onnx import Kokoro as Engine
 
                 self.dir.mkdir(parents=True, exist_ok=True)
                 for name in FILES:  # baixa uma vez só (~330 MB)
                     path = self.dir / name
                     if not path.exists():
                         _download(BASE_URL + name, path)
-                self._engine = Kokoro(str(self.dir / FILES[0]), str(self.dir / FILES[1]))
+                self._engine = Engine(str(self.dir / FILES[0]), str(self.dir / FILES[1]))
             return self._engine
 
     def _speak(self, text: str) -> bytes:
-        engine = self._load()
-        samples, rate = engine.create(
+        samples, rate = self._load().create(
             text, voice=self.s.tts_voice, speed=self.s.tts_speed, lang="pt-br"
         )
         return to_wav(samples, rate)
 
-    async def speak(self, text: str) -> bytes:
-        return await asyncio.to_thread(self._speak, text)
+    async def speak(self, text: str) -> tuple[bytes, str]:
+        return await asyncio.to_thread(self._speak, text), "audio/wav"
+
+
+class Edge:
+    """Voz neural da Microsoft (edge-tts): bem natural e rápida, gratuita, precisa de internet."""
+
+    def __init__(self, settings: Settings):
+        self.s = settings
+
+    @staticmethod
+    def installed() -> bool:
+        try:
+            import edge_tts  # noqa: F401
+        except ImportError:
+            return False
+        return True
+
+    async def speak(self, text: str) -> tuple[bytes, str]:
+        import edge_tts
+
+        pct = round((self.s.tts_speed - 1) * 100)
+        com = edge_tts.Communicate(text, self.s.edge_voice, rate=f"{pct:+d}%")
+        audio = bytearray()
+        async for chunk in com.stream():
+            if chunk.get("type") == "audio":
+                audio += chunk["data"]
+        if not audio:
+            raise RuntimeError("edge-tts não devolveu áudio")
+        return bytes(audio), "audio/mpeg"
+
+
+class Speaker:
+    """Escolhe a voz: a da Microsoft se configurada (com a local como reserva) ou a local."""
+
+    def __init__(self, settings: Settings, models_dir: Path = MODELS_DIR):
+        self.s = settings
+        self.kokoro = Kokoro(settings, models_dir)
+        self.edge = Edge(settings)
+        self.error: str | None = None
+        self.last_engine: str | None = None
+
+    def _engines(self) -> list:
+        order = [self.edge, self.kokoro] if self.s.tts_engine == "edge" else [self.kokoro]
+        return [e for e in order if e.installed()]
+
+    @property
+    def available(self) -> bool:
+        if self._engines():
+            return True
+        self.error = "nenhuma voz instalada (pip install -r requirements-voz.txt)"
+        return False
+
+    async def speak(self, text: str) -> tuple[bytes, str]:
+        errors = []
+        for engine in self._engines():
+            try:
+                result = await engine.speak(text)
+                self.last_engine = type(engine).__name__.lower()
+                return result
+            except Exception as exc:  # sem internet etc.: tenta a próxima
+                errors.append(f"{type(engine).__name__}: {exc}")
+        raise RuntimeError("; ".join(errors) or "nenhuma voz instalada")
 
     async def warm_up(self) -> None:
         if self.available:
-            await asyncio.to_thread(self._speak, "Oi.")
+            await self.speak("Oi.")

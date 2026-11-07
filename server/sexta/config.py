@@ -59,6 +59,8 @@ class Settings:
     whisper_model: str = "large-v3-turbo"
     tts_voice: str = "pf_dora"   # voz feminina pt-BR do Kokoro
     tts_speed: float = 1.05
+    tts_engine: str = "edge"      # "edge" (Microsoft, natural) ou "kokoro" (só local)
+    edge_voice: str = "pt-BR-FranciscaNeural"
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "Settings":
@@ -80,4 +82,6 @@ class Settings:
             whisper_model=env.get("SEXTA_WHISPER_MODEL", cls.whisper_model),
             tts_voice=env.get("SEXTA_TTS_VOICE", cls.tts_voice),
             tts_speed=float(env.get("SEXTA_TTS_SPEED", cls.tts_speed)),
+            tts_engine=env.get("SEXTA_TTS_ENGINE", cls.tts_engine).lower(),
+            edge_voice=env.get("SEXTA_EDGE_VOICE", cls.edge_voice),
         )

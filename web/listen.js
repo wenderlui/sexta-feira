@@ -16,7 +16,7 @@ export class Segmenter {
   constructor(sampleRate, opts = {}) {
     this.rate = sampleRate;
     this.o = {
-      prerollMs: 1000, silenceMs: 1500, maxMs: 15000, minSpeechMs: 350,
+      prerollMs: 1000, silenceMs: 1000, maxMs: 15000, minSpeechMs: 350,
       startChunks: 2, factor: 3, minLevel: 0.006, ...opts,
     };
     this.floor = 0.004;     // ruído de fundo estimado
