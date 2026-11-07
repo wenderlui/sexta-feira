@@ -77,20 +77,92 @@ function unlockSpeech() {
 }
 document.addEventListener("pointerdown", unlockSpeech, { once: true });
 
-function speak(text) {
+// Voz do PC (Kokoro), tocada pelo mesmo áudio do microfone: no iPad é o único
+// jeito de ela falar enquanto o microfone está ligado.
+let serverTtsOff = false;
+let playing = null;
+let playCtx = null;
+function outputCtx() {
+  if (sexta.audioCtx) return sexta.audioCtx;
+  playCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+  return playCtx;
+}
+document.addEventListener("pointerdown", () => { playCtx?.resume?.(); });
+
+function stopSpeaking() {
+  window.speechSynthesis?.cancel();
+  if (playing) { try { playing.stop(); } catch { /* ok */ } playing = null; }
+}
+sexta.stopSpeaking = stopSpeaking;
+
+async function speakServer(text) {
+  const t0 = Date.now();
+  const r = await fetch("/api/tts", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout?.(20000),
+  });
+  if (r.status === 503) { serverTtsOff = true; throw new Error("tts-off"); }
+  if (!r.ok) throw new Error(`voz do PC falhou (${r.status})`);
+  const data = await r.arrayBuffer();
+  const ctx = outputCtx();
+  if (ctx.state !== "running") await ctx.resume().catch(() => {});
+  const buffer = await new Promise((ok, fail) => ctx.decodeAudioData(data, ok, fail));
+  sexta.setState("speaking");
+  diag(`voz do PC: ${Date.now() - t0} ms para gerar, ${buffer.duration.toFixed(1)} s de fala, áudio ${ctx.state}`);
+  await new Promise((resolve) => {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    const guard = setTimeout(resolve, buffer.duration * 1000 + 1500);
+    src.onended = () => { clearTimeout(guard); resolve(); };
+    playing = src;
+    src.start();
+  });
+  playing = null;
+}
+
+async function speak(text) {
+  if (sexta.muted || !text) return;
+  if (!serverTtsOff) {
+    try { return await speakServer(text); }
+    catch (e) { if (e.message !== "tts-off") diag(`voz do PC: ${e.message}`); }
+  }
+  return speakBrowser(text);
+}
+
+// Reserva: voz do próprio Safari (pode sair muda com o microfone ligado no iPad).
+function speakBrowser(text) {
   return new Promise((resolve) => {
     if (sexta.muted || !window.speechSynthesis || !text) return resolve();
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    synth.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "pt-BR";
     if (voice) u.voice = voice;
     u.rate = 1.05;
+    u.volume = 1;
+    const t0 = Date.now();
+    let started = false, finished = false;
     // Se o iOS não avisar que terminou, não deixamos a escuta travada.
-    const guard = setTimeout(done, 5000 + text.length * 150);
-    function done() { clearTimeout(guard); resolve(); }
-    u.onend = u.onerror = done;
+    const guard = setTimeout(() => done("tempo esgotado"), 5000 + text.length * 150);
+    async function done(how) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(guard);
+      diag(`fala ${how}: ${Date.now() - t0} ms, começou=${started}, voz ${voice?.name || "padrão"}, desbloqueada=${unlocked}`);
+      // Religa o áudio do microfone, pausado para a voz poder sair no iPad.
+      try { await sexta.audioCtx?.resume(); } catch { /* ok */ }
+      resolve();
+    }
+    u.onstart = () => { started = true; };
+    u.onend = () => done("terminou");
+    u.onerror = (e) => done(`erro ${e.error || "?"}`);
     sexta.setState("speaking");
-    window.speechSynthesis.speak(u);
+    // No iOS, com o microfone gravando, a voz pode sair muda: pausamos a captura enquanto ela fala.
+    Promise.resolve(sexta.audioCtx?.suspend?.()).catch(() => {}).finally(() => {
+      // Pequena pausa depois do cancel(): o Safari às vezes ignora um speak() imediato.
+      setTimeout(() => synth.speak(u), 120);
+    });
   });
 }
 
@@ -184,7 +256,7 @@ async function holdStart(e) {
   e.preventDefault();
   if (busy || hold || holdSR) return;
   unlockSpeech();
-  window.speechSynthesis?.cancel();
+  stopSpeaking();
   talk.classList.add("active");
   sexta.setState("listening");
   if (serverSttOff && BrowserSR) {
@@ -298,7 +370,11 @@ function attachTap() {
     else if (wasRec && !seg.recording) sexta.setState("listening", "ESCUTANDO");
   };
   src.connect(node);
-  node.connect(ctx.destination); // o Safari só processa se o nó estiver ligado à saída (sai silêncio)
+  // O Safari só processa se o nó estiver ligado à saída; o ganho zero garante silêncio.
+  const mute = ctx.createGain();
+  mute.gain.value = 0;
+  node.connect(mute);
+  mute.connect(ctx.destination);
   tap = { node, src, seg };
 }
 function detachTap() {

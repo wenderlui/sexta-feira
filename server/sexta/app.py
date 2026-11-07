@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
@@ -17,6 +17,7 @@ from .assistant import Assistant, wants_vision
 from .cache import TTLCache
 from .config import Settings
 from .speech import Transcriber
+from .tts import Speaker
 
 
 class ChatMessage(BaseModel):
@@ -27,6 +28,10 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
     image: str | None = None  # JPEG em base64 (sem o prefixo data:)
+
+class TtsRequest(BaseModel):
+    text: str
+
 
 class ClientLog(BaseModel):
     msg: str
@@ -65,12 +70,14 @@ def create_app(
     search=None,
     news=None,
     transcriber: Transcriber | None = None,
+    speaker: Speaker | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     _setup_logging()
     cache = TTLCache()
     state: dict = {}
     ears = transcriber or Transcriber(settings)
+    mouth = speaker or Speaker(settings)
 
     async def _warm():
         log = logging.getLogger("sexta")
@@ -84,6 +91,13 @@ def create_app(
                 await ears.warm_up()
             except Exception as exc:
                 log.warning("Whisper não carregou: %s", exc)
+        if speaker is None:
+            try:
+                await mouth.warm_up()
+                if mouth.available:
+                    log.info("Voz Kokoro (%s) pronta", settings.tts_voice)
+            except Exception as exc:
+                log.warning("Voz Kokoro não carregou: %s", exc)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -195,6 +209,20 @@ def create_app(
         _keep_last_audio(audio, request.headers.get("content-type", ""))
         return result
 
+    @app.post("/api/tts")
+    async def tts(req: TtsRequest):
+        if not mouth.available:
+            raise HTTPException(status_code=503, detail=mouth.error)
+        text = req.text.strip()[:1500]
+        if not text:
+            raise HTTPException(status_code=400, detail="Texto vazio.")
+        try:
+            audio = await mouth.speak(text)
+        except Exception as exc:
+            logging.getLogger("sexta").exception("Falha ao gerar a voz")
+            raise HTTPException(status_code=500, detail=f"Falha ao gerar a voz: {exc}")
+        return Response(content=audio, media_type="audio/wav")
+
     @app.post("/api/log")
     async def client_log(entry: ClientLog):
         # Diagnóstico do iPad: aparece no logs/servidor.log do PC.
@@ -206,7 +234,8 @@ def create_app(
         return {**await state["assistant"].status(),
                 "chat_model": settings.chat_model,
                 "vision_model": settings.vision_model,
-                "stt_available": ears.available}
+                "stt_available": ears.available,
+                "tts_available": mouth.available}
 
     @app.get("/api/system")
     async def system_stats():

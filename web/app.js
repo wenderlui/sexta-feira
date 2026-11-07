@@ -428,7 +428,7 @@ async function start() {
   $("btn-mute").addEventListener("click", () => {
     sexta.muted = !sexta.muted;
     setPressed($("btn-mute"), sexta.muted);
-    if (sexta.muted) window.speechSynthesis?.cancel();
+    if (sexta.muted) (sexta.stopSpeaking || (() => window.speechSynthesis?.cancel()))();
   });
   window.addEventListener("online", refreshStatus);
   window.addEventListener("offline", refreshStatus);

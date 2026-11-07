@@ -89,3 +89,19 @@ def test_news_tool_returns_headlines_with_sources(client, upstream, news, search
     assert r["sources"][0]["href"] == "https://g1.globo.com/economia/copom"
     tools = [t["function"]["name"] for t in upstream.ollama_bodies[0]["tools"]]
     assert tools == ["buscar_web", "buscar_noticias"]
+
+
+def test_tts_returns_wav(client):
+    r = client.post("/api/tts", json={"text": "São três horas."})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/wav"
+    assert r.content.startswith(b"RIFF")
+    assert client.post("/api/tts", json={"text": "  "}).status_code == 400
+
+
+def test_to_wav_header():
+    import wave, io
+    from sexta.tts import to_wav
+    data = to_wav([0.0, 0.5, -0.5], 24000)
+    with wave.open(io.BytesIO(data)) as w:
+        assert w.getframerate() == 24000 and w.getnframes() == 3

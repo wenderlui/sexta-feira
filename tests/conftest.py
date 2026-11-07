@@ -102,6 +102,18 @@ class FakeEars:
         return {"text": "qual a temperatura agora", "duration": 1.2}
 
 
+class FakeMouth:
+    available = True
+    error = None
+
+    def __init__(self):
+        self.said = []
+
+    async def speak(self, text: str) -> bytes:
+        self.said.append(text)
+        return b"RIFF....WAVEfmt "
+
+
 @pytest.fixture
 def search():
     return FakeSearch()
@@ -123,6 +135,6 @@ def news():
 def client(upstream, search, news):
     http = httpx.AsyncClient(transport=httpx.MockTransport(upstream.handler))
     app = create_app(settings=Settings(), client=http, search=search, news=news,
-                     transcriber=FakeEars())
+                     transcriber=FakeEars(), speaker=FakeMouth())
     with TestClient(app) as c:
         yield c

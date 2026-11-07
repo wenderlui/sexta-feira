@@ -36,14 +36,14 @@ def test_coingecko_key_is_sent_when_configured(upstream):
     import httpx
     from fastapi.testclient import TestClient
 
-    from conftest import FakeEars
+    from conftest import FakeEars, FakeMouth
     from sexta.app import create_app
     from sexta.config import Settings
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(upstream.handler))
     # Um Transcriber falso evita carregar o Whisper de verdade durante o teste.
     app = create_app(settings=Settings(coingecko_api_key="CG-teste"), client=http,
-                     transcriber=FakeEars())
+                     transcriber=FakeEars(), speaker=FakeMouth())
     with TestClient(app) as c:
         c.get("/api/crypto")
     assert upstream.last_request["api.coingecko.com"].headers["x-cg-demo-api-key"] == "CG-teste"

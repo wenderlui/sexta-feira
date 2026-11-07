@@ -63,3 +63,14 @@ Para respostas mais rápidas, `qwen3:4b`; para entender melhor fala com ruído, 
 - No iOS, o microfone só começa a medir o volume depois do primeiro toque na tela.
 - Placar de futebol não é confiável com a busca atual (ficou para depois).
 - A busca usa o DuckDuckGo sem chave, que pode limitar muitas buscas seguidas.
+
+## Voz da Sexta-feira (Kokoro no PC)
+
+No iPad, a voz do próprio Safari fica muda enquanto o microfone está gravando. Por isso a
+resposta falada é gerada no PC com o [Kokoro](https://github.com/thewh1teagle/kokoro-onnx)
+(local e gratuito, voz feminina `pf_dora`) pelo `POST /api/tts`, e o iPad toca o WAV pelo
+mesmo áudio do microfone. Na primeira vez o servidor baixa os modelos (~330 MB) para `models/`.
+Se o Kokoro não estiver instalado, o iPad volta para a voz do Safari.
+
+Configuração opcional no `.env`: `SEXTA_TTS_VOICE` (ex.: `pm_alex` para voz masculina) e
+`SEXTA_TTS_SPEED` (padrão 1.05).
