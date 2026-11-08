@@ -50,9 +50,9 @@ class Settings:
     timezone: str = "America/New_York"
     coins: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_COINS))
     coingecko_api_key: str | None = None
-    weather_ttl: int = 600
-    crypto_ttl: int = 300
-    usdtbrl_ttl: int = 60
+    weather_ttl: int = 3600
+    crypto_ttl: int = 1800
+    usdtbrl_ttl: int = 1800
     ollama_url: str = "http://127.0.0.1:11434"
     chat_model: str = "qwen3:8b"
     vision_model: str = "qwen2.5vl:7b"

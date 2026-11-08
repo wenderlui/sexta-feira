@@ -74,7 +74,7 @@ def test_upstream_down_returns_502(client, upstream):
 def test_config_lists_coins(client):
     cfg = client.get("/api/config").json()
     assert cfg["coins"] == ["BTC", "ETH", "POL", "UNI", "DOT", "LINK"]
-    assert cfg["refresh_seconds"]["crypto"] == 300
+    assert cfg["refresh_seconds"]["crypto"] == 1800
 
 
 def test_serves_ipad_app(client):

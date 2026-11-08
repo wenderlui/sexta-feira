@@ -37,13 +37,13 @@ microfone em HTTPS, e o Tailscale resolve isso.
 
 | Rota | O que devolve | Atualização |
 | --- | --- | --- |
-| `GET /api/weather` | Clima atual e 3 dias | 10 min |
-| `GET /api/crypto` | Preços das moedas configuradas | 5 min |
-| `GET /api/usdtbrl` | Cotação USDT/BRL | 1 min (Binance) ou 5 min (CoinGecko) |
+| `GET /api/weather` | Clima atual e 3 dias | 1 h (2 h de madrugada) |
+| `GET /api/crypto` | Preços das moedas configuradas | 30 min (1 h de madrugada) |
+| `GET /api/usdtbrl` | Cotação USDT/BRL | 30 min (1 h de madrugada) |
 | `POST /api/chat` | Resposta da IA (`{messages, image?}`) | — |
 | `POST /api/transcribe` | Texto do áudio enviado (corpo = áudio) | — |
 | `GET /api/assistant/status` | Ollama online, modelos prontos, Whisper instalado | — |
-| `GET /api/system` | CPU, RAM, GPU e VRAM do PC | a cada 5 s no painel |
+| `GET /api/system` | CPU, RAM, GPU e VRAM do PC | a cada 1 min no painel (5 min de madrugada) |
 | `GET /api/config` | Cidade, moedas e intervalos | — |
 | `GET /api/health` | `{"status": "ok"}` | — |
 
@@ -56,7 +56,7 @@ intervalo normal.
 Veja [.env.example](.env.example). Para trocar as moedas, use
 `SEXTA_COINS=BTC:bitcoin,ETH:ethereum,...` com o id de cada moeda no CoinGecko.
 A chave gratuita do plano Demo do CoinGecko (`COINGECKO_API_KEY`) é opcional, mas
-evita bloqueios; o plano dá 10 mil chamadas por mês, e o intervalo de 5 min usa cerca de 8.700.
+evita bloqueios; o plano dá 10 mil chamadas por mês, e o intervalo de 30 min usa cerca de 1.500.
 
 ## Testes
 

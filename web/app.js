@@ -60,14 +60,20 @@ function startBackground() {
     ctx.stroke();
   }
 
-  function step() {
-    t += 0.016;
+  // Fundo a 30 quadros por segundo (15 de madrugada): mesma aparência, metade do trabalho do iPad.
+  let last = 0;
+  function step(now = performance.now()) {
+    const minGap = isNight() ? 66 : 33;
+    if (now - last < minGap) { frame = requestAnimationFrame(step); return; }
+    const k = Math.min(4, (now - (last || now - 16.7)) / 16.7);
+    last = now;
+    t += 0.016 * k;
     ctx.clearRect(0, 0, w, h);
     drawGrid();
     const level = sexta.level || 0;
     const linkDist = 120;
     for (const n of nodes) {
-      n.x += n.vx * (1 + level * 6); n.y += n.vy * (1 + level * 6);
+      n.x += n.vx * (1 + level * 6) * k; n.y += n.vy * (1 + level * 6) * k;
       if (n.x < 0 || n.x > w) n.vx *= -1;
       if (n.y < 0 || n.y > h) n.vy *= -1;
     }
@@ -421,7 +427,7 @@ async function start() {
   tickClock();
   setInterval(tickClock, 1000);
 
-  let refresh = { weather: 600, crypto: 300, usdtbrl: 60 };
+  let refresh = { weather: 3600, crypto: 1800, usdtbrl: 1800 };
   try { refresh = (await getJSON("/api/config")).refresh_seconds; } catch (e) { console.warn(e); }
 
   const all = () => {
@@ -433,11 +439,12 @@ async function start() {
   load("system", "/api/system", renderSystem);
   loadAssistant();
   // Atualiza conforme o horário e a necessidade: de madrugada bem menos, e nada com a tela apagada.
-  every(() => load("weather", "/api/weather", renderWeather), refresh.weather, 3);
-  every(() => load("crypto", "/api/crypto", renderCrypto), refresh.crypto, 4);
-  every(() => load("usdtbrl", "/api/usdtbrl", renderUsdt), refresh.usdtbrl, 5);
-  every(() => load("system", "/api/system", renderSystem), 5, 3);
-  every(loadAssistant, 30, 2);
+  // Relógio em tempo real; o resto a cada 30 min a 1 h (o dobro de madrugada).
+  every(() => load("weather", "/api/weather", renderWeather), refresh.weather, 2);
+  every(() => load("crypto", "/api/crypto", renderCrypto), refresh.crypto, 2);
+  every(() => load("usdtbrl", "/api/usdtbrl", renderUsdt), refresh.usdtbrl, 2);
+  every(() => load("system", "/api/system", renderSystem), 60, 5);
+  every(loadAssistant, 300, 2);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") { all(); load("system", "/api/system", renderSystem); loadAssistant(); }
   });
