@@ -185,8 +185,9 @@ class Assistant:
             "model": model,
             "messages": messages,
             "stream": False,
-            # O modelo de conversa fica sempre na GPU; o de visão sai depois de 10 min.
-            "keep_alive": -1 if model == self.s.chat_model else "10m",
+            # O modelo de conversa fica sempre na GPU.
+            # A visão (câmera) sai da GPU 1 min depois de usada, para não ocupar ~6 GB parada.
+            "keep_alive": -1 if model == self.s.chat_model else "1m",
             "options": {"temperature": 0.6, "num_ctx": NUM_CTX},
         }
         if model.startswith("qwen3"):

@@ -49,7 +49,7 @@ Verde = pronto, amarelo = parcial, vermelho = fora do ar.
 - A busca prefere resultados em português, lê o começo das 3 primeiras páginas (não só o resumo)
   e guarda o resultado por 10 minutos, então repetir a pergunta é instantâneo.
 - Quando o servidor liga, ele já carrega o `qwen3:8b` e o Whisper na GPU, e o modelo de conversa
-  fica carregado para sempre (`keep_alive: -1`). O de visão sai da memória 10 min depois do uso.
+  fica carregado para sempre (`keep_alive: -1`). O de visão sai da memória 1 min depois do uso, e o Whisper roda em int8 (metade da VRAM).
 
 ## Trocar de modelo
 

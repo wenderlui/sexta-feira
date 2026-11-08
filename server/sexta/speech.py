@@ -53,7 +53,7 @@ class Transcriber:
 
                 try:
                     self._model = WhisperModel(
-                        self.s.whisper_model, device="cuda", compute_type="float16"
+                        self.s.whisper_model, device="cuda", compute_type="int8_float16"  # metade da VRAM
                     )
                 except Exception:
                     # Sem CUDA disponível: CPU funciona, só que mais devagar.
