@@ -233,6 +233,19 @@ class Home:
             raise HomeError(f"o aparelho não respondeu ({exc.__class__.__name__})") from exc
         raise HomeError("aparelho não encontrado")
 
+    async def snapshot(self, camera: str) -> bytes | None:
+        """Foto atual de uma câmera do Home Assistant (ex.: camera.blink_garagem)."""
+        ha = self._ha()
+        entity = camera if camera.startswith("camera.") else f"camera.{camera}"
+        if not ha or not ENTITY_RE.match(entity):
+            return None
+        try:
+            r = await self.client.get(f"{ha.url}/api/camera_proxy/{entity}", headers=ha._h(), timeout=15)
+            r.raise_for_status()
+        except httpx.HTTPError:
+            return None
+        return r.content or None
+
     async def command(self, dispositivo: str, acao: str, valor: float | None = None) -> str:
         """Usado pela IA: acha o aparelho pelo nome e executa."""
         devices, errors = await self.devices()

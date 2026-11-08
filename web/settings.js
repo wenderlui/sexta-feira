@@ -46,7 +46,8 @@ function showTab(id) {
   for (const b of modal.querySelectorAll("[role=tab]")) b.setAttribute("aria-selected", String(b.dataset.tab === id));
   for (const p of modal.querySelectorAll("[role=tabpanel]")) p.hidden = p.id !== id;
   try { localStorage.setItem(TAB_KEY, id); } catch { /* ok */ }
-  ({ "tab-casa": loadDevices, "tab-conexoes": loadConnections, "tab-voz": loadVoice, "tab-sobre": loadData })[id]?.();
+  ({ "tab-casa": loadDevices, "tab-conexoes": loadConnections, "tab-cameras": loadCameras,
+     "tab-voz": loadVoice, "tab-sobre": loadData })[id]?.();
 }
 for (const b of modal.querySelectorAll("[role=tab]")) b.addEventListener("click", () => showTab(b.dataset.tab));
 
@@ -181,3 +182,85 @@ function loadData() {
   $("data-info").replaceChildren(el("div", { class: "conn-grid" },
     DATA_ROWS.map(([t, d]) => el("article", { class: "conn" }, el("h3", {}, t), el("p", {}, d)))));
 }
+
+// ---------- Câmeras (vigia da madrugada) ----------
+// Hora do PC (fuso de Lowell), não a do aparelho: "2026-11-08T02:14:00-05:00" -> "02:14".
+const hhmm = (iso) => String(iso).slice(11, 16);
+const dia = (iso) => String(iso).slice(8, 10) + "/" + String(iso).slice(5, 7);
+const camName = (c) => String(c).replace(/^camera\./, "").replace(/^blink_/, "").replace(/_/g, " ");
+async function loadCameras() {
+  try {
+    const r = await api("/api/cameras/rule");
+    const f = $("rule-form");
+    f.enabled.value = String(r.enabled);
+    f.start.value = r.start; f.end.value = r.end;
+    for (const c of f.querySelectorAll("[name=objects]")) c.checked = r.objects.includes(c.value);
+    const url = `${location.origin}/api/cameras/event`;
+    $("ha-yaml").textContent =
+`rest_command:
+  sexta_camera:
+    url: "${url}"
+    method: POST
+    headers:
+      X-Sexta-Token: "${r.webhook_token}"
+    content_type: "application/json"
+    payload: '{"camera": "{{ camera }}"}'
+
+# Automação (uma por câmera):
+# gatilho: binary_sensor.blink_<camera>_motion passa a "on"
+# ação: rest_command.sexta_camera com camera: camera.blink_<camera>`;
+  } catch (e) { $("rule-saved").textContent = e.message; }
+  loadAlertList();
+}
+async function loadAlertList() {
+  const box = $("alert-list");
+  try {
+    const { alerts } = await api("/api/alerts?limit=10");
+    box.replaceChildren(...(alerts.length ? alerts.map((a) => el("div", { class: "alert-row" },
+      a.foto ? el("img", { src: `/api/alerts/${a.id}.jpg`, alt: "", loading: "lazy" }) : el("span", { class: "nophoto" }, "📷"),
+      el("div", {}, el("b", {}, `${a.objetos.join(" e ")} · ${camName(a.camera)}`),
+        el("small", {}, `${dia(a.quando)} às ${hhmm(a.quando)} — ${a.descricao || ""}`))))
+      : [el("p", { class: "muted" }, "Nenhum alerta ainda.")]));
+  } catch (e) { box.replaceChildren(el("p", { class: "muted" }, e.message)); }
+}
+$("rule-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const body = { enabled: f.enabled.value === "true", start: f.start.value, end: f.end.value,
+    objects: [...f.querySelectorAll("[name=objects]:checked")].map((c) => c.value) };
+  try {
+    await api("/api/cameras/rule", { method: "PUT", body: JSON.stringify(body) });
+    $("rule-saved").textContent = "Salvo no PC.";
+  } catch (err) { $("rule-saved").textContent = err.message; }
+});
+
+// ---------- Alerta no painel ----------
+const SEEN_KEY = "sexta.lastAlert";
+let shownAlert = null;
+async function pollAlerts() {
+  try {
+    const { alerts } = await api("/api/alerts?limit=5");
+    const fresh = alerts.find((a) => !a.visto);
+    if (!fresh || fresh.id === shownAlert) return;
+    shownAlert = fresh.id;
+    const hora = hhmm(fresh.quando);
+    const nome = camName(fresh.camera);
+    $("alert-title").textContent = `ALERTA: ${fresh.objetos.join(" e ")} na câmera ${nome}, ${hora}`;
+    $("alert-desc").textContent = fresh.descricao || "";
+    $("alert-photo").hidden = !fresh.foto;
+    $("alert-banner").classList.toggle("no-photo", !fresh.foto);
+    if (fresh.foto) $("alert-photo").src = `/api/alerts/${fresh.id}.jpg`;
+    $("alert-banner").hidden = false;
+    document.body.classList.add("has-alert");
+    let last = null;
+    try { last = localStorage.getItem(SEEN_KEY); localStorage.setItem(SEEN_KEY, fresh.id); } catch { /* ok */ }
+    if (last !== fresh.id) sexta.speak?.(`Atenção: ${fresh.objetos.join(" e ")} na câmera ${nome}. ${fresh.descricao || ""}`);
+  } catch { /* sem rede: tenta de novo */ }
+}
+$("alert-ok").addEventListener("click", async () => {
+  if (shownAlert) await api(`/api/alerts/${shownAlert}/ack`, { method: "POST" }).catch(() => {});
+  $("alert-banner").hidden = true;
+  document.body.classList.remove("has-alert");
+});
+pollAlerts();
+setInterval(pollAlerts, 5000);

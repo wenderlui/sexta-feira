@@ -20,6 +20,8 @@ from .speech import Transcriber
 from .tts import Speaker
 from .store import Store
 from .home import CATALOG, CATALOG_BY_ID, Home, HomeError
+from .cameras import Alerts, Watchman
+from fastapi.responses import FileResponse
 
 
 class ChatMessage(BaseModel):
@@ -57,6 +59,18 @@ class ConnectionIn(BaseModel):
 class DeviceAction(BaseModel):
     action: str = Field(pattern="^(ligar|desligar|alternar|brilho|temperatura)$")
     value: float | None = None
+
+
+class CameraEvent(BaseModel):
+    camera: str = Field(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9_.\- ]+$")
+    image: str | None = Field(default=None, max_length=8_000_000)  # JPEG em base64, opcional
+
+
+class CameraRule(BaseModel):
+    start: str | None = None
+    end: str | None = None
+    objects: list[str] | None = None
+    enabled: bool | None = None
 
 
 class ClientLog(BaseModel):
@@ -104,6 +118,7 @@ def create_app(
     transcriber: Transcriber | None = None,
     speaker: Speaker | None = None,
     store: Store | None = None,
+    alerts: Alerts | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     store = store or Store()
@@ -143,6 +158,7 @@ def create_app(
         kwargs = {k: v for k, v in (("search", search), ("news", news)) if v}
         state["home"] = Home(state["client"], store)
         state["assistant"] = Assistant(state["client"], settings, home=state["home"], **kwargs)
+        state["watch"] = Watchman(settings, store, state["home"], alerts or Alerts(), state["assistant"].look)
         if client is None:
             # Carrega a IA e o Whisper em segundo plano para a primeira resposta não demorar.
             state["warm"] = asyncio.create_task(_warm())
@@ -349,6 +365,49 @@ def create_app(
         except HomeError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         return {"ok": True}
+
+    # ---------------- Vigia das câmeras ----------------
+    @app.post("/api/cameras/event")
+    async def camera_event(ev: CameraEvent, request: Request):
+        # Chamado pelo Home Assistant quando uma câmera detecta movimento.
+        if not state["watch"].check_token(request.headers.get("x-sexta-token")):
+            raise HTTPException(status_code=401, detail="Token do webhook inválido.")
+        try:
+            result = await state["watch"].event(ev.camera, ev.image)
+        except (ValueError, httpx.HTTPError) as exc:
+            raise HTTPException(status_code=502, detail=f"Não consegui analisar a câmera: {exc}")
+        logging.getLogger("sexta").info("Câmera %s: %s", ev.camera, result.get("motivo") or result.get("objetos"))
+        return result
+
+    @app.get("/api/alerts")
+    async def list_alerts(limit: int = 20):
+        items = state["watch"].alerts.items[-max(1, min(limit, 100)):]
+        return {"alerts": list(reversed(items))}
+
+    @app.post("/api/alerts/{alert_id}/ack")
+    async def ack_alert(alert_id: str):
+        if not state["watch"].alerts.ack(alert_id):
+            raise HTTPException(status_code=404, detail="Alerta não encontrado.")
+        return {"ok": True}
+
+    @app.get("/api/alerts/{alert_id}.jpg")
+    async def alert_photo(alert_id: str):
+        path = state["watch"].alerts.photo(alert_id)
+        if not path:
+            raise HTTPException(status_code=404, detail="Sem foto.")
+        return FileResponse(path, media_type="image/jpeg")
+
+    @app.get("/api/cameras/rule")
+    async def get_rule():
+        return {**state["watch"].rule(), "webhook_token": state["watch"].webhook_token()}
+
+    @app.put("/api/cameras/rule")
+    async def put_rule(rule: CameraRule):
+        try:
+            saved = state["watch"].set_rule({k: v for k, v in rule.model_dump().items() if v is not None})
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return saved
 
     @app.post("/api/log")
     async def client_log(entry: ClientLog):

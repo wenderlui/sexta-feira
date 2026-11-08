@@ -264,6 +264,12 @@ class Assistant:
         return {"text": _strip_think(msg.get("content", "")), "model": self.s.chat_model,
                 "used_vision": False, "sources": sources}
 
+    async def look(self, image_b64: str, prompt: str) -> str:
+        """Pergunta ao modelo de visão sobre uma imagem (usado pelo vigia das câmeras)."""
+        msg = await self._ollama_chat(self.s.vision_model, [
+            {"role": "user", "content": prompt, "images": [image_b64]}])
+        return _strip_think(msg.get("content", ""))
+
     async def warm_up(self) -> None:
         """Carrega o modelo de conversa na GPU para a primeira pergunta não esperar."""
         r = await self.client.post(

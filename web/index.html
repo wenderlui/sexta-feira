@@ -94,6 +94,12 @@
         <div class="core-label" id="core-label">EM ESPERA</div>
       </div>
 
+      <div class="alert-banner" id="alert-banner" role="alert" hidden>
+        <img id="alert-photo" alt="Foto da câmera no momento do alerta">
+        <div><b id="alert-title"></b><span id="alert-desc"></span></div>
+        <button id="alert-ok" class="btn">VISTO</button>
+      </div>
+
       <div class="chat">
         <ol id="chat-log" class="chat-log" aria-live="polite"></ol>
         <form id="chat-form" class="chat-form" autocomplete="off">
@@ -143,6 +149,7 @@
       <div class="tabs" role="tablist">
         <button role="tab" aria-selected="true" data-tab="tab-casa">CASA</button>
         <button role="tab" aria-selected="false" data-tab="tab-conexoes">CONEXÕES</button>
+        <button role="tab" aria-selected="false" data-tab="tab-cameras">CÂMERAS</button>
         <button role="tab" aria-selected="false" data-tab="tab-voz">VOZ</button>
         <button role="tab" aria-selected="false" data-tab="tab-sobre">DADOS</button>
       </div>
@@ -153,6 +160,28 @@
         </section>
         <section id="tab-conexoes" role="tabpanel" hidden>
           <div class="conn-grid" id="connections"></div>
+        </section>
+        <section id="tab-cameras" role="tabpanel" hidden>
+          <form id="rule-form">
+            <div class="field"><label for="rule-on">Vigia da madrugada</label>
+              <select id="rule-on" name="enabled"><option value="true">Ligado</option><option value="false">Desligado</option></select></div>
+            <div class="field"><label for="rule-start">Das</label><input id="rule-start" name="start" type="time" required></div>
+            <div class="field"><label for="rule-end">Até</label><input id="rule-end" name="end" type="time" required></div>
+            <div class="field"><label>Avisar se aparecer</label>
+              <div class="checks">
+                <label><input type="checkbox" name="objects" value="pessoa"> pessoa</label>
+                <label><input type="checkbox" name="objects" value="carro"> carro</label>
+                <label><input type="checkbox" name="objects" value="animal"> animal</label>
+              </div></div>
+            <div class="field"><span></span><div><button class="btn primary" type="submit">SALVAR</button></div></div>
+            <div class="field"><span></span><span class="saved-note" id="rule-saved" role="status"></span></div>
+          </form>
+          <h3 class="sub">Últimos alertas</h3>
+          <div class="alert-list" id="alert-list"></div>
+          <details class="howto"><summary>Como ligar as câmeras Blink (Home Assistant)</summary>
+            <p>No Home Assistant, crie uma automação: quando o sensor de movimento da câmera ligar, chame o serviço <code>rest_command.sexta_camera</code>. No <code>configuration.yaml</code>:</p>
+            <pre id="ha-yaml"></pre>
+          </details>
         </section>
         <section id="tab-voz" role="tabpanel" hidden>
           <form id="voice-form">

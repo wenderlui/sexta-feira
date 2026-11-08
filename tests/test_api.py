@@ -32,7 +32,7 @@ def test_crypto_is_cached(client, upstream):
     assert upstream.calls["api.coingecko.com"] == 1
 
 
-def test_coingecko_key_is_sent_when_configured(upstream, store):
+def test_coingecko_key_is_sent_when_configured(upstream, store, alerts):
     import httpx
     from fastapi.testclient import TestClient
 
@@ -43,7 +43,7 @@ def test_coingecko_key_is_sent_when_configured(upstream, store):
     http = httpx.AsyncClient(transport=httpx.MockTransport(upstream.handler))
     # Um Transcriber falso evita carregar o Whisper de verdade durante o teste.
     app = create_app(settings=Settings(coingecko_api_key="CG-teste"), client=http,
-                     transcriber=FakeEars(), speaker=FakeMouth(), store=store)
+                     transcriber=FakeEars(), speaker=FakeMouth(), store=store, alerts=alerts)
     with TestClient(app) as c:
         c.get("/api/crypto")
     assert upstream.last_request["api.coingecko.com"].headers["x-cg-demo-api-key"] == "CG-teste"

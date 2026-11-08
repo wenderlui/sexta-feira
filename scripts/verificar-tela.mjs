@@ -53,9 +53,13 @@ if (shots) await page.screenshot({ path: `${shots}/painel.png` });
 // 5) AJUSTES abre, troca abas, fecha com ESC
 await page.click("#btn-settings");
 ok(await page.isVisible("#settings"), "AJUSTES não abriu");
-for (const tab of ["tab-conexoes", "tab-voz", "tab-sobre", "tab-casa"]) {
+for (const tab of ["tab-conexoes", "tab-cameras", "tab-voz", "tab-sobre", "tab-casa"]) {
   await page.click(`[data-tab=${tab}]`);
   if (tab === "tab-conexoes") await page.waitForSelector("#tab-conexoes .conn");
+  if (tab === "tab-cameras") {
+    await page.waitForFunction(() => document.querySelector("#rule-start").value !== "");
+    if (shots) await page.screenshot({ path: `${shots}/ajustes-cameras.png` });
+  }
   if (tab === "tab-casa") await page.waitForFunction(() => !document.querySelector("#casa-hint").textContent.includes("Carregando"));
   ok(await page.isVisible(`#${tab}`), `aba ${tab} não aparece`);
   if (tab === "tab-conexoes") {

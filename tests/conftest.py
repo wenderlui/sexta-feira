@@ -90,6 +90,9 @@ class FakeUpstream:
                 return httpx.Response(200, json={"message": "API running."})
             if request.url.path == "/api/states":
                 return httpx.Response(200, json=HA_STATES)
+            if request.url.path.startswith("/api/camera_proxy/"):
+                return httpx.Response(200, content=b"\xff\xd8JPEG-FALSO\xff\xd9",
+                                      headers={"content-type": "image/jpeg"})
             if request.url.path.startswith("/api/services/"):
                 self.ha_calls.append((request.url.path, json.loads(request.content)))
                 return httpx.Response(200, json=[])
@@ -168,9 +171,15 @@ def store(tmp_path):
 
 
 @pytest.fixture
-def client(upstream, search, news, store):
+def alerts(tmp_path):
+    from sexta.cameras import Alerts
+    return Alerts(tmp_path / "alertas")
+
+
+@pytest.fixture
+def client(upstream, search, news, store, alerts):
     http = httpx.AsyncClient(transport=httpx.MockTransport(upstream.handler))
     app = create_app(settings=Settings(), client=http, search=search, news=news,
-                     transcriber=FakeEars(), speaker=FakeMouth(), store=store)
+                     transcriber=FakeEars(), speaker=FakeMouth(), store=store, alerts=alerts)
     with TestClient(app) as c:
         yield c

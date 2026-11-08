@@ -27,3 +27,19 @@ Para conectar a Sexta-feira: no Home Assistant, clique no seu nome > **Seguranç
 AJUSTES > CONEXÕES > Home Assistant e toque em **SALVAR E TESTAR**.
 
 O token fica guardado só no PC (`data/ajustes.json`) e nunca volta para o iPad.
+
+## Vigia das câmeras (madrugada)
+
+Regra padrão: **pessoa ou carro entre 00:00 e 05:00** vira alerta no painel (foto, descrição e voz).
+Ajuste em AJUSTES > CÂMERAS. Fora do horário a IA nem é chamada.
+
+Como funciona com as Blink (que só mandam imagem quando detectam movimento):
+
+1. A Blink detecta movimento e o Home Assistant chama a Sexta-feira (`POST /api/cameras/event`,
+   com o cabeçalho `X-Sexta-Token`, mostrado em AJUSTES > CÂMERAS junto com o YAML pronto).
+2. A Sexta-feira pega a foto da câmera no Home Assistant e pergunta ao modelo de visão local
+   (qwen2.5vl) se há pessoa, carro ou animal. Nada sai do PC.
+3. Se bater com a regra, o alerta aparece em vermelho no centro do painel e ela fala o aviso.
+   Fotos e alertas ficam em `data/alertas/` e `data/alertas.jsonl` no PC.
+
+Para vigiar o vídeo o tempo todo seriam necessárias câmeras com RTSP (Reolink, Tapo) e o Frigate.
