@@ -185,9 +185,9 @@ class Assistant:
             "model": model,
             "messages": messages,
             "stream": False,
-            # O modelo de conversa fica sempre na GPU.
-            # A visão (câmera) sai da GPU 1 min depois de usada, para não ocupar ~6 GB parada.
-            "keep_alive": -1 if model == self.s.chat_model else "1m",
+            # Conversa: fica na GPU enquanto houver uso e sai depois de idle_minutes parada.
+            # Visão (câmera): sai 1 min depois de usada, para não ocupar ~6 GB à toa.
+            "keep_alive": f"{self.s.idle_minutes}m" if model == self.s.chat_model else "1m",
             "options": {"temperature": 0.6, "num_ctx": NUM_CTX},
         }
         if model.startswith("qwen3"):
@@ -272,15 +272,24 @@ class Assistant:
         return _strip_think(msg.get("content", ""))
 
     async def warm_up(self) -> None:
-        """Carrega o modelo de conversa na GPU para a primeira pergunta não esperar."""
+        """Carrega o modelo de conversa na GPU (chamado quando alguém começa a falar)."""
         r = await self.client.post(
             f"{self.s.ollama_url}/api/generate",
             # Mesmo num_ctx das conversas: senão o Ollama recarrega o modelo na 1ª pergunta (~8 s).
-            json={"model": self.s.chat_model, "prompt": "", "keep_alive": -1,
+            json={"model": self.s.chat_model, "prompt": "", "keep_alive": f"{self.s.idle_minutes}m",
                   "options": {"num_ctx": NUM_CTX}},
             timeout=300,
         )
         r.raise_for_status()
+
+    async def loaded(self) -> list[str]:
+        """Modelos que estão na placa de vídeo agora (o resto está em espera)."""
+        try:
+            r = await self.client.get(f"{self.s.ollama_url}/api/ps", timeout=3)
+            r.raise_for_status()
+            return [m["name"] for m in r.json().get("models", [])]
+        except (httpx.HTTPError, KeyError, ValueError):
+            return []
 
     async def status(self) -> dict[str, Any]:
         try:

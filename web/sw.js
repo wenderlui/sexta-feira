@@ -1,5 +1,5 @@
 // Service worker: guarda a "casca" do app para abrir rápido; dados da API sempre da rede.
-const CACHE = "sexta-v14";
+const CACHE = "sexta-v15";
 const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/format.js", "/voice.js", "/listen.js", "/settings.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

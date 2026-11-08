@@ -23,6 +23,15 @@ function diag(msg) {
 }
 sexta.diag = diag;
 
+// Avisa o PC que alguém vai falar: a IA e o Whisper saem da espera enquanto você ainda fala.
+let lastWake = 0;
+function wakeServer() {
+  if (Date.now() - lastWake < 20000) return;
+  lastWake = Date.now();
+  fetch("/api/wake", { method: "POST" }).catch(() => {});
+}
+sexta.wakeServer = wakeServer;
+
 // ---------- Registro da conversa ----------
 function addMsg(role, text, sources = []) {
   const li = document.createElement("li");
@@ -279,6 +288,7 @@ async function holdStart(e) {
   if (busy || hold || holdSR) return;
   unlockSpeech();
   stopSpeaking();
+  wakeServer();
   talk.classList.add("active");
   sexta.setState("listening");
   if (serverSttOff && BrowserSR) {
@@ -395,7 +405,7 @@ function attachTap() {
     if (paused) { if (seg.recording) seg.reset(); return; }
     const wasRec = seg.recording;
     const done = seg.push(new Float32Array(input));
-    if (!wasRec && seg.recording) sexta.setState("listening", "OUVINDO");
+    if (!wasRec && seg.recording) { sexta.setState("listening", "OUVINDO"); wakeServer(); }
     if (done) onUtterance(done, ctx.sampleRate);
     else if (wasRec && !seg.recording) sexta.setState("listening", "ESCUTANDO");
   };
@@ -482,6 +492,7 @@ $("btn-mic").addEventListener("click", async () => {
 })();
 
 // --- Texto ---
+$("chat-input").addEventListener("focus", wakeServer);
 $("chat-form").addEventListener("submit", (e) => {
   e.preventDefault();
   unlockSpeech();

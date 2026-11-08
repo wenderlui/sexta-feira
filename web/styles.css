@@ -473,3 +473,6 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .alert-banner.no-photo { grid-template-columns: 1fr auto; }
 .alert-banner .btn { min-width: 96px; }
 .alert-row .nophoto { width: 96px; height: 64px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,0.04); }
+/* IA em espera: ponto azul calmo em vez de verde */
+.chip.ok.standby i { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+.chip.standby::after { content: "ESPERA"; font-size: 0.5rem; letter-spacing: 0.12em; color: var(--muted); }

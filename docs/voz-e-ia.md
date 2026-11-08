@@ -81,3 +81,13 @@ Por padrão a voz é a `pt-BR-FranciscaNeural` da Microsoft, via [edge-tts](http
 gratuita, bem natural e rápida, mas o texto da resposta vai para a Microsoft gerar o áudio.
 Sem internet, ou se ela falhar, o PC usa o Kokoro local. Para usar só a voz local, coloque
 `SEXTA_TTS_ENGINE=kokoro` no `.env`. Outra voz: `SEXTA_EDGE_VOICE=pt-BR-ThalitaMultilingualNeural`.
+
+## Modo espera (placa de vídeo livre quando ninguém fala)
+
+- Ao ligar, nada é carregado na GPU. Quando o iPad detecta voz (ou você toca em FALAR ou no campo
+  de texto), ele chama `POST /api/wake` e o PC carrega a IA e o Whisper enquanto você ainda fala.
+- A IA de conversa sai da GPU depois de `SEXTA_IDLE_MINUTES` (padrão 10) sem uso; o Whisper também.
+  A visão sai 1 minuto depois de usada. O chip IA mostra "ESPERA" quando está fora da GPU.
+- O painel atualiza menos de madrugada (0h às 6h) e para quando a tela do iPad está apagada.
+- No PC, o Ollama usa `OLLAMA_FLASH_ATTENTION=1` e `OLLAMA_KV_CACHE_TYPE=q8_0` (contexto em 8 bits,
+  menos memória) e `OLLAMA_KEEP_ALIVE=10m`.

@@ -261,6 +261,10 @@ async function loadAssistant() {
     sexta.assistant = st;
     sexta.chip("ai", st.online && st.chat_model_ready ? "ok" : st.online ? "warn" : "bad");
     sexta.chip("voice", st.stt_available ? "ok" : "warn");
+    // Em espera = pronta, mas fora da placa de vídeo até alguém falar.
+    const standby = st.loaded && !st.loaded.chat;
+    $("chip-ai").classList.toggle("standby", !!standby);
+    $("chip-ai").title = standby ? "IA em espera: liga sozinha quando você falar" : "IA carregada";
   } catch {
     sexta.chip("ai", "bad");
   }
@@ -398,6 +402,19 @@ async function boot() {
   $("boot").classList.add("done");
 }
 
+export function isNight(date = new Date()) {
+  const h = date.getHours();
+  return h >= 0 && h < 6;
+}
+// Repete fn a cada baseSec segundos (x nightFactor de madrugada) e pausa com a tela apagada.
+function every(fn, baseSec, nightFactor = 1) {
+  const tick = () => {
+    if (document.visibilityState === "visible") fn();
+    setTimeout(tick, baseSec * 1000 * (isNight() ? nightFactor : 1));
+  };
+  setTimeout(tick, baseSec * 1000 * (isNight() ? nightFactor : 1));
+}
+
 async function start() {
   startBackground();
   boot();
@@ -415,11 +432,15 @@ async function start() {
   all();
   load("system", "/api/system", renderSystem);
   loadAssistant();
-  setInterval(() => load("weather", "/api/weather", renderWeather), refresh.weather * 1000);
-  setInterval(() => load("crypto", "/api/crypto", renderCrypto), refresh.crypto * 1000);
-  setInterval(() => load("usdtbrl", "/api/usdtbrl", renderUsdt), refresh.usdtbrl * 1000);
-  setInterval(() => { if (document.visibilityState === "visible") load("system", "/api/system", renderSystem); }, 5000);
-  setInterval(loadAssistant, 30000);
+  // Atualiza conforme o horário e a necessidade: de madrugada bem menos, e nada com a tela apagada.
+  every(() => load("weather", "/api/weather", renderWeather), refresh.weather, 3);
+  every(() => load("crypto", "/api/crypto", renderCrypto), refresh.crypto, 4);
+  every(() => load("usdtbrl", "/api/usdtbrl", renderUsdt), refresh.usdtbrl, 5);
+  every(() => load("system", "/api/system", renderSystem), 5, 3);
+  every(loadAssistant, 30, 2);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") { all(); load("system", "/api/system", renderSystem); loadAssistant(); }
+  });
 
   $("btn-camera").addEventListener("click", toggleCamera);
   // A câmera volta como você deixou da última vez.

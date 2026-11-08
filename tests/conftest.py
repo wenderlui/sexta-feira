@@ -60,6 +60,8 @@ class FakeUpstream:
         self.ollama_replies: list[dict] = []
         self.ollama_bodies: list[dict] = []
         self.ha_calls: list = []
+        self.ollama_generate: list[dict] = []
+        self.ollama_loaded: list[str] = []
         self.govee_calls: list = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -75,6 +77,11 @@ class FakeUpstream:
             return httpx.Response(200, json={k: v for k, v in CRYPTO.items() if k in ids})
         if host == "127.0.0.1" and request.url.path == "/api/tags":
             return httpx.Response(200, json={"models": [{"name": "qwen3:8b"}]})
+        if host == "127.0.0.1" and request.url.path == "/api/generate":
+            self.ollama_generate.append(json.loads(request.content))
+            return httpx.Response(200, json={"done": True})
+        if host == "127.0.0.1" and request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": [{"name": m} for m in self.ollama_loaded]})
         if host == "127.0.0.1" and request.url.path == "/api/chat":
             self.ollama_bodies.append(json.loads(request.content))
             msg = self.ollama_replies.pop(0) if self.ollama_replies else {
@@ -130,6 +137,13 @@ class FakeSearch:
 class FakeEars:
     available = True
     error = None
+    loaded = False
+    last_used = 0.0
+    warmed = 0
+
+    async def warm_up(self):
+        self.warmed += 1
+        self.loaded = True
 
     async def transcribe(self, audio: bytes):
         return {"text": "qual a temperatura agora", "duration": 1.2}

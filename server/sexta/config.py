@@ -57,6 +57,7 @@ class Settings:
     chat_model: str = "qwen3:8b"
     vision_model: str = "qwen2.5vl:7b"
     whisper_model: str = "large-v3-turbo"
+    idle_minutes: int = 10   # IA e Whisper saem da placa de vídeo depois desse tempo sem uso
     tts_voice: str = "pf_dora"   # voz feminina pt-BR do Kokoro
     tts_speed: float = 1.05
     tts_engine: str = "edge"      # "edge" (Microsoft, natural) ou "kokoro" (só local)
@@ -80,6 +81,7 @@ class Settings:
             chat_model=env.get("SEXTA_CHAT_MODEL", cls.chat_model),
             vision_model=env.get("SEXTA_VISION_MODEL", cls.vision_model),
             whisper_model=env.get("SEXTA_WHISPER_MODEL", cls.whisper_model),
+            idle_minutes=int(env.get("SEXTA_IDLE_MINUTES", cls.idle_minutes)),
             tts_voice=env.get("SEXTA_TTS_VOICE", cls.tts_voice),
             tts_speed=float(env.get("SEXTA_TTS_SPEED", cls.tts_speed)),
             tts_engine=env.get("SEXTA_TTS_ENGINE", cls.tts_engine).lower(),

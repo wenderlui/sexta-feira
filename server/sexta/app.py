@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -129,25 +130,49 @@ def create_app(
     ears = transcriber or Transcriber(settings)
     mouth = speaker or Speaker(settings)
 
+    async def _reaper():
+        log = logging.getLogger("sexta")
+        while True:
+            await asyncio.sleep(60)
+            try:
+                if await asyncio.to_thread(ears.unload_if_idle, settings.idle_minutes * 60):
+                    log.info("Whisper em espera (fora da placa de vídeo)")
+            except Exception as exc:  # nunca derruba o servidor
+                log.warning("Falha ao liberar o Whisper: %s", exc)
+
     async def _warm():
         log = logging.getLogger("sexta")
-        try:
-            await state["assistant"].warm_up()
-            log.info("Modelo %s carregado na GPU", settings.chat_model)
-        except Exception as exc:  # Ollama ainda subindo etc.: não impede o painel
-            log.warning("IA não pré-carregou: %s", exc)
-        if transcriber is None:
+        # IA e Whisper sobem juntos, enquanto a pessoa ainda está falando.
+        async def chat():
             try:
-                await ears.warm_up()
+                await state["assistant"].warm_up()
+                log.info("Modelo %s carregado na GPU", settings.chat_model)
+            except Exception as exc:  # Ollama ainda subindo etc.: não impede o painel
+                log.warning("IA não pré-carregou: %s", exc)
+
+        async def whisper():
+            if not hasattr(ears, "warm_up"):
+                return
+            try:
+                if not getattr(ears, "loaded", False):
+                    await ears.warm_up()
+                    log.info("Whisper carregado na GPU")
+                ears.last_used = time.time()
             except Exception as exc:
                 log.warning("Whisper não carregou: %s", exc)
-        if speaker is None:
+
+        async def voice():
+            if speaker is not None or state.get("voice_ready"):
+                return
             try:
                 await mouth.warm_up()
+                state["voice_ready"] = True
                 if mouth.available:
                     log.info("Voz pronta: %s", mouth.last_engine)
             except Exception as exc:
                 log.warning("Voz não carregou: %s", exc)
+
+        await asyncio.gather(chat(), whisper(), voice())
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -159,12 +184,14 @@ def create_app(
         state["home"] = Home(state["client"], store)
         state["assistant"] = Assistant(state["client"], settings, home=state["home"], **kwargs)
         state["watch"] = Watchman(settings, store, state["home"], alerts or Alerts(), state["assistant"].look)
-        if client is None:
-            # Carrega a IA e o Whisper em segundo plano para a primeira resposta não demorar.
-            state["warm"] = asyncio.create_task(_warm())
+        # Modo espera: nada é carregado na placa de vídeo ao ligar. A IA e o Whisper sobem
+        # quando o iPad avisa que alguém começou a falar (/api/wake) e saem depois de
+        # idle_minutes sem uso.
+        state["reaper"] = asyncio.create_task(_reaper())
         try:
             yield
         finally:
+            state["reaper"].cancel()
             if own:
                 await state["client"].aclose()
 
@@ -415,12 +442,27 @@ def create_app(
         logging.getLogger("sexta.ipad").info("%s", entry.msg[:500])
         return {"ok": True}
 
+    @app.post("/api/wake")
+    async def wake():
+        """O iPad ouviu voz (ou alguém tocou em FALAR/escrever): liga a IA e o Whisper."""
+        now = asyncio.get_running_loop().time()
+        task = state.get("warm")
+        if (task and not task.done()) or now - state.get("woke_at", -1e9) < 30:
+            return {"waking": False}
+        state["woke_at"] = now
+        state["warm"] = asyncio.create_task(_warm())
+        return {"waking": True}
+
     @app.get("/api/assistant/status")
     async def assistant_status():
         return {**await state["assistant"].status(),
                 "chat_model": settings.chat_model,
                 "vision_model": settings.vision_model,
                 "stt_available": ears.available,
+                "loaded": {"chat": any(m.startswith(settings.chat_model)
+                                       for m in await state["assistant"].loaded()),
+                           "whisper": getattr(ears, "loaded", False)},
+                "idle_minutes": settings.idle_minutes,
                 "tts_available": mouth.available}
 
     @app.get("/api/system")

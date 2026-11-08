@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import io
+import gc
 import threading
+import time
 from typing import Any
 
 from .config import Settings
@@ -35,6 +37,20 @@ class Transcriber:
         self._model = None
         self._lock = threading.Lock()
         self.error: str | None = None
+        self.last_used = 0.0
+
+    @property
+    def loaded(self) -> bool:
+        return self._model is not None
+
+    def unload_if_idle(self, idle_seconds: float) -> bool:
+        """Tira o Whisper da placa de vídeo se ninguém falou nos últimos minutos."""
+        with self._lock:
+            if self._model is None or time.time() - self.last_used < idle_seconds:
+                return False
+            self._model = None
+        gc.collect()
+        return True
 
     @property
     def available(self) -> bool:
@@ -46,6 +62,7 @@ class Transcriber:
         return True
 
     def _load(self):
+        self.last_used = time.time()
         with self._lock:
             if self._model is None:
                 _add_cuda_dll_dirs()
