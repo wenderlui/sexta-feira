@@ -18,6 +18,8 @@ from .cache import TTLCache
 from .config import Settings
 from .speech import Transcriber
 from .tts import Speaker
+from .store import Store
+from .home import CATALOG, CATALOG_BY_ID, Home, HomeError
 
 
 class ChatMessage(BaseModel):
@@ -31,6 +33,30 @@ class ChatRequest(BaseModel):
 
 class TtsRequest(BaseModel):
     text: str
+
+
+EDGE_VOICES = {
+    "pt-BR-FranciscaNeural": "Francisca (feminina)",
+    "pt-BR-ThalitaMultilingualNeural": "Thalita (feminina)",
+    "pt-BR-AntonioNeural": "Antonio (masculina)",
+}
+KOKORO_VOICES = {"pf_dora": "Dora (feminina)", "pm_alex": "Alex (masculina)", "pm_santa": "Santa (masculina)"}
+
+
+class Prefs(BaseModel):
+    tts_engine: str | None = Field(default=None, pattern="^(edge|kokoro)$")
+    edge_voice: str | None = None
+    tts_voice: str | None = None
+    tts_speed: float | None = Field(default=None, ge=0.8, le=1.3)
+
+
+class ConnectionIn(BaseModel):
+    values: dict[str, str] = Field(default_factory=dict)
+
+
+class DeviceAction(BaseModel):
+    action: str = Field(pattern="^(ligar|desligar|alternar|brilho|temperatura)$")
+    value: float | None = None
 
 
 class ClientLog(BaseModel):
@@ -60,6 +86,12 @@ def _keep_last_audio(audio: bytes, content_type: str) -> None:
         pass
 
 
+def _apply_prefs(settings: Settings, prefs: dict) -> None:
+    for key in ("tts_engine", "edge_voice", "tts_voice", "tts_speed"):
+        if prefs.get(key) is not None:
+            setattr(settings, key, prefs[key])
+
+
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
 
@@ -71,8 +103,11 @@ def create_app(
     news=None,
     transcriber: Transcriber | None = None,
     speaker: Speaker | None = None,
+    store: Store | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
+    store = store or Store()
+    _apply_prefs(settings, store.prefs)
     _setup_logging()
     cache = TTLCache()
     state: dict = {}
@@ -106,7 +141,8 @@ def create_app(
             headers={"User-Agent": "sexta-feira/0.1"}
         )
         kwargs = {k: v for k, v in (("search", search), ("news", news)) if v}
-        state["assistant"] = Assistant(state["client"], settings, **kwargs)
+        state["home"] = Home(state["client"], store)
+        state["assistant"] = Assistant(state["client"], settings, home=state["home"], **kwargs)
         if client is None:
             # Carrega a IA e o Whisper em segundo plano para a primeira resposta não demorar.
             state["warm"] = asyncio.create_task(_warm())
@@ -125,6 +161,13 @@ def create_app(
         response = await call_next(request)
         if not request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-cache"
+        else:
+            response.headers["Cache-Control"] = "no-store"
+        # Cabeçalhos de segurança padrão.
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
         return response
 
     async def _serve(key: str, ttl: int, fetch):
@@ -223,6 +266,89 @@ def create_app(
             raise HTTPException(status_code=500, detail=f"Falha ao gerar a voz: {exc}")
         return Response(content=audio, media_type=media_type,
                         headers={"X-Sexta-Voz": getattr(mouth, "last_engine", None) or "?"})
+
+    # ---------------- Ajustes (salvos no PC, em data/ajustes.json) ----------------
+    def _prefs_view() -> dict:
+        return {
+            "tts_engine": settings.tts_engine, "edge_voice": settings.edge_voice,
+            "tts_voice": settings.tts_voice, "tts_speed": settings.tts_speed,
+            "options": {"edge_voice": EDGE_VOICES, "tts_voice": KOKORO_VOICES},
+            "saved_at": str(store.path.name),
+        }
+
+    @app.get("/api/settings")
+    async def get_settings():
+        return _prefs_view()
+
+    @app.put("/api/settings")
+    async def put_settings(p: Prefs):
+        values = {k: v for k, v in p.model_dump().items() if v is not None}
+        if "edge_voice" in values and values["edge_voice"] not in EDGE_VOICES:
+            raise HTTPException(status_code=422, detail="Voz desconhecida.")
+        if "tts_voice" in values and values["tts_voice"] not in KOKORO_VOICES:
+            raise HTTPException(status_code=422, detail="Voz desconhecida.")
+        store.set_prefs(values)
+        _apply_prefs(settings, values)
+        return _prefs_view()
+
+    @app.get("/api/connections")
+    async def list_connections():
+        ha_on = bool(store.connection("homeassistant").get("token"))
+        out = []
+        for c in CATALOG:
+            saved = store.public_connection(c["id"])
+            if c["kind"] == "native":
+                status = "on" if saved else "off"
+            elif c["kind"] == "via_ha":
+                status = "via_ha_on" if ha_on else "via_ha_off"
+            else:
+                status = "soon"
+            out.append({**c, "status": status, "saved": saved})
+        return {"connections": out}
+
+    @app.put("/api/connections/{cid}")
+    async def save_connection(cid: str, body: ConnectionIn):
+        meta = CATALOG_BY_ID.get(cid)
+        if not meta or meta["kind"] != "native":
+            raise HTTPException(status_code=404, detail="Conexão desconhecida.")
+        allowed = {f["key"]: f for f in meta["fields"]}
+        values = {}
+        for k, v in body.values.items():
+            if k not in allowed:
+                raise HTTPException(status_code=422, detail=f"Campo desconhecido: {k}")
+            v = v.strip()
+            if len(v) > 2000:
+                raise HTTPException(status_code=422, detail=f"{k} muito longo")
+            if allowed[k]["type"] == "url" and v and not v.startswith(("http://", "https://")):
+                raise HTTPException(status_code=422, detail="O endereço precisa começar com http:// ou https://")
+            values[k] = v.rstrip("/") if allowed[k]["type"] == "url" else v
+        store.set_connection(cid, values)
+        try:
+            detail = await state["home"].check(cid)
+            ok = True
+        except HomeError as exc:
+            detail, ok = str(exc), False
+        return {"ok": ok, "detail": detail, "saved": store.public_connection(cid)}
+
+    @app.delete("/api/connections/{cid}")
+    async def delete_connection(cid: str):
+        if cid not in CATALOG_BY_ID:
+            raise HTTPException(status_code=404, detail="Conexão desconhecida.")
+        store.remove_connection(cid)
+        return {"ok": True}
+
+    @app.get("/api/home/devices")
+    async def home_devices():
+        devices, errors = await state["home"].devices()
+        return {"devices": devices, "errors": errors}
+
+    @app.post("/api/home/devices/{device_id:path}")
+    async def home_action(device_id: str, body: DeviceAction):
+        try:
+            await state["home"].act(device_id, body.action, body.value)
+        except HomeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {"ok": True}
 
     @app.post("/api/log")
     async def client_log(entry: ClientLog):

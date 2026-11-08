@@ -27,7 +27,27 @@ Responda com o conteúdo encontrado, nunca mande o usuário procurar em sites.
 Só afirme o que estiver escrito nos resultados da busca. Se eles não trazem a resposta exata,
 diga que não encontrou, sem deduzir nem misturar informações de outros assuntos.
 Nunca invente dados. Se não souber, diga que não sabe.
-Ações fora do computador (pagar, enviar mensagem, comprar) você nunca faz sozinha: só sugere."""
+Ações fora do computador (pagar, enviar mensagem, comprar) você nunca faz sozinha: só sugere.
+Quando ele pedir para ligar, desligar ou ajustar luzes, TV, ar-condicionado ou outros aparelhos da casa,
+use controlar_casa (se existir) e confirme em poucas palavras o que fez."""
+
+HOME_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "controlar_casa",
+        "description": "Liga, desliga ou ajusta aparelhos da casa (luzes Govee, TVs, ar-condicionado, tomadas). "
+                       "Use acao 'listar' para saber quais aparelhos existem.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "dispositivo": {"type": "string", "description": "Nome falado do aparelho, ex.: 'luz da sala', 'tv do quarto'."},
+                "acao": {"type": "string", "enum": ["ligar", "desligar", "alternar", "brilho", "temperatura", "listar"]},
+                "valor": {"type": "number", "description": "Brilho 1-100 ou temperatura em °C, quando fizer sentido."},
+            },
+            "required": ["acao"],
+        },
+    },
+}
 
 SEARCH_TOOL = {
     "type": "function",
@@ -152,7 +172,8 @@ NUM_CTX = 8192
 
 class Assistant:
     def __init__(self, client: httpx.AsyncClient, settings: Settings, search=web_search,
-                 news=news_search):
+                 news=news_search, home=None):
+        self.home = home
         self.client = client
         self.s = settings
         self.search = search
@@ -204,7 +225,10 @@ class Assistant:
 
         msgs: list[dict[str, Any]] = [system, *history]
         for _ in range(3):  # até 3 rodadas de ferramenta
-            msg = await self._ollama_chat(self.s.chat_model, msgs, tools=[SEARCH_TOOL, NEWS_TOOL])
+            tools = [SEARCH_TOOL, NEWS_TOOL]
+            if self.home is not None and self.home.configured:
+                tools.append(HOME_TOOL)
+            msg = await self._ollama_chat(self.s.chat_model, msgs, tools=tools)
             calls = msg.get("tool_calls") or []
             if not calls:
                 return {"text": _strip_think(msg.get("content", "")), "model": self.s.chat_model,
@@ -224,6 +248,14 @@ class Assistant:
                     results = await self.research.run(name, args.get("consulta", ""), fn_search)
                     sources.extend(r for r in results if r.get("href"))
                     content = json.dumps(results, ensure_ascii=False)[:9000]
+                elif name == "controlar_casa" and self.home is not None:
+                    valor = args.get("valor")
+                    try:
+                        valor = float(valor) if valor not in (None, "") else None
+                    except (TypeError, ValueError):
+                        valor = None
+                    content = await self.home.command(str(args.get("dispositivo", "")),
+                                                      str(args.get("acao", "listar")), valor)
                 else:
                     content = "Ferramenta desconhecida."
                 msgs.append({"role": "tool", "content": content, "tool_name": fn.get("name", "")})

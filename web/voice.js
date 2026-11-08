@@ -238,6 +238,7 @@ async function ask(text) {
   }
 }
 sexta.ask = ask;
+sexta.speak = speak;
 
 // ---------- Ouvir ----------
 function recorderMime() {

@@ -39,6 +39,15 @@ CRYPTO = {
 }
 
 
+HA_STATES = [
+    {"entity_id": "light.sala", "state": "off", "attributes": {"friendly_name": "Luz da sala"}},
+    {"entity_id": "media_player.tv_samsung", "state": "on", "attributes": {"friendly_name": "TV Samsung"}},
+    {"entity_id": "climate.ar_quarto", "state": "cool", "attributes": {"friendly_name": "Ar do quarto"}},
+    {"entity_id": "sensor.temperatura", "state": "21", "attributes": {}},
+    {"entity_id": "switch.velha", "state": "unavailable", "attributes": {}},
+]
+
+
 class FakeUpstream:
     """Simula Open-Meteo, CoinGecko e Binance e conta as chamadas."""
 
@@ -50,6 +59,8 @@ class FakeUpstream:
         # Respostas do Ollama, em ordem; cada uma é o "message" devolvido.
         self.ollama_replies: list[dict] = []
         self.ollama_bodies: list[dict] = []
+        self.ha_calls: list = []
+        self.govee_calls: list = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         host = request.url.host
@@ -72,6 +83,25 @@ class FakeUpstream:
         if host == "exemplo.com":
             page = "<html><body><nav>menu</nav><article><p>" + "O Flamengo venceu o jogo por 2 a 1 no Maracanã. " * 10 + "</p></article></body></html>"
             return httpx.Response(200, text=page, headers={"content-type": "text/html; charset=utf-8"})
+        if host == "ha.local":
+            if request.headers.get("authorization") != "Bearer tok-ha-1234":
+                return httpx.Response(401)
+            if request.url.path == "/api/":
+                return httpx.Response(200, json={"message": "API running."})
+            if request.url.path == "/api/states":
+                return httpx.Response(200, json=HA_STATES)
+            if request.url.path.startswith("/api/services/"):
+                self.ha_calls.append((request.url.path, json.loads(request.content)))
+                return httpx.Response(200, json=[])
+        if host == "openapi.api.govee.com":
+            if request.headers.get("govee-api-key") != "gv-key-9876":
+                return httpx.Response(401)
+            if request.url.path.endswith("/user/devices"):
+                return httpx.Response(200, json={"code": 200, "data": [
+                    {"sku": "H6199", "device": "AA:BB", "deviceName": "LED do quarto", "type": "light"}]})
+            if request.url.path.endswith("/device/control"):
+                self.govee_calls.append(json.loads(request.content))
+                return httpx.Response(200, json={"code": 200})
         if host == "api.binance.com":
             if self.binance_status != 200:
                 return httpx.Response(self.binance_status, json={"code": 0, "msg": "restricted"})
@@ -132,9 +162,15 @@ def news():
 
 
 @pytest.fixture
-def client(upstream, search, news):
+def store(tmp_path):
+    from sexta.store import Store
+    return Store(tmp_path / "ajustes.json")
+
+
+@pytest.fixture
+def client(upstream, search, news, store):
     http = httpx.AsyncClient(transport=httpx.MockTransport(upstream.handler))
     app = create_app(settings=Settings(), client=http, search=search, news=news,
-                     transcriber=FakeEars(), speaker=FakeMouth())
+                     transcriber=FakeEars(), speaker=FakeMouth(), store=store)
     with TestClient(app) as c:
         yield c
