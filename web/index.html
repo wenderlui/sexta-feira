@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sexta-feira">
+  <meta name="theme-color" content="#02060d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <title>Sexta-feira</title>
+</head>
+<body data-state="idle">
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div id="boot" class="boot" aria-hidden="true">
+    <div class="boot-ring"></div>
+    <div class="boot-text" id="boot-text">INICIALIZANDO SISTEMAS</div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-name">SEXTA-FEIRA</span>
+      <span class="brand-sub" id="greeting">assistente pessoal</span>
+    </div>
+    <div class="clock">
+      <span id="clock-time">--:--<small>--</small></span>
+      <span id="clock-date"></span>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chip-link"><i></i>LINK</span>
+      <span class="chip" id="chip-ai"><i></i>IA</span>
+      <span class="chip" id="chip-voice"><i></i>VOZ</span>
+      <span class="status" id="status" role="status"></span>
+    </div>
+  </header>
+
+  <p class="rotate-hint">A Sexta-feira foi feita para o iPad deitado. Gire para a horizontal.</p>
+
+  <main class="hud">
+    <!-- Coluna esquerda -->
+    <section class="panel weather" aria-labelledby="weather-title">
+      <h2 id="weather-title"><span>CLIMA</span> <em id="weather-city"></em></h2>
+      <div class="weather-now">
+        <span id="weather-icon" class="big-icon">❔</span>
+        <div>
+          <div class="temp"><span id="weather-temp" class="num">--</span><sup>°C</sup></div>
+          <div id="weather-desc" class="muted">Carregando…</div>
+        </div>
+      </div>
+      <div id="weather-extra" class="meta-row"></div>
+      <ul id="weather-days" class="days"></ul>
+      <div class="sun" id="weather-sun"></div>
+    </section>
+
+    <section class="panel usdt" aria-labelledby="usdt-title">
+      <h2 id="usdt-title"><span>USDT / BRL</span> <em id="usdt-change"></em></h2>
+      <div class="price-big"><small>R$</small> <span id="usdt-price" class="num">--</span></div>
+      <svg id="usdt-spark" class="spark big" viewBox="0 0 200 48" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="convert" id="usdt-convert"></div>
+      <div id="usdt-meta" class="meta-row"></div>
+    </section>
+
+    <!-- Centro: núcleo + conversa -->
+    <section class="core-area" aria-label="Núcleo da Sexta-feira">
+      <div class="core" id="core">
+        <svg class="rings" viewBox="0 0 300 300" aria-hidden="true">
+          <defs>
+            <radialGradient id="core-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#bff4ff" stop-opacity="1"/>
+              <stop offset="35%" stop-color="#36d6ff" stop-opacity=".85"/>
+              <stop offset="70%" stop-color="#0a6fa8" stop-opacity=".25"/>
+              <stop offset="100%" stop-color="#02060d" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle class="r r1" cx="150" cy="150" r="140"/>
+          <circle class="r r2" cx="150" cy="150" r="124"/>
+          <circle class="r r3" cx="150" cy="150" r="108"/>
+          <circle class="r r4" cx="150" cy="150" r="92"/>
+          <g class="ticks">
+            <circle class="r r5" cx="150" cy="150" r="132"/>
+          </g>
+          <circle class="glow" cx="150" cy="150" r="80" fill="url(#core-glow)"/>
+        </svg>
+        <video id="camera-preview" playsinline muted autoplay hidden></video>
+        <div class="core-label" id="core-label">EM ESPERA</div>
+      </div>
+
+      <div class="alert-banner" id="alert-banner" role="alert" hidden>
+        <img id="alert-photo" alt="Foto da câmera no momento do alerta">
+        <div><b id="alert-title"></b><span id="alert-desc"></span></div>
+        <button id="alert-ok" class="btn">VISTO</button>
+      </div>
+
+      <div class="chat">
+        <ol id="chat-log" class="chat-log" aria-live="polite"></ol>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <input id="chat-input" type="text" placeholder="Escreva ou segure FALAR…" aria-label="Mensagem">
+          <button type="submit" aria-label="Enviar">➤</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Coluna direita -->
+    <section class="panel crypto" aria-labelledby="crypto-title">
+      <h2 id="crypto-title"><span>CRIPTO</span> <em id="crypto-meta"></em></h2>
+      <table class="coins">
+        <thead><tr><th>ATIVO</th><th>US$</th><th>R$</th><th>24H</th><th></th></tr></thead>
+        <tbody id="crypto-rows"><tr><td colspan="5" class="muted">Carregando…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="panel system" aria-labelledby="system-title">
+      <h2 id="system-title"><span>SISTEMA</span> <em id="system-uptime"></em></h2>
+      <div class="bars">
+        <div class="bar"><label>CPU</label><div class="track"><div id="bar-cpu"></div></div><span id="val-cpu">--</span></div>
+        <div class="bar"><label>RAM</label><div class="track"><div id="bar-ram"></div></div><span id="val-ram">--</span></div>
+        <div class="bar"><label>GPU</label><div class="track"><div id="bar-gpu"></div></div><span id="val-gpu">--</span></div>
+        <div class="bar"><label>VRAM</label><div class="track"><div id="bar-vram"></div></div><span id="val-vram">--</span></div>
+      </div>
+      <div class="meta-row" id="system-meta"></div>
+      <div class="meter" aria-label="Nível do microfone"><div id="mic-level"></div></div>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="Controles">
+    <button id="btn-camera" class="toggle" aria-pressed="false"><span class="dot"></span>CÂMERA</button>
+    <button id="btn-mic" class="toggle mic" aria-pressed="false" title="Ouvindo. Toque para silenciar o microfone."><span class="dot"></span><span class="lbl">OUVINDO</span></button>
+    <button id="btn-talk" class="talk" aria-label="Segure para falar">FALAR</button>
+    <button id="btn-mute" class="toggle" aria-pressed="false" title="Ela responde só por escrito"><span class="dot"></span>SEM VOZ</button>
+    <button id="btn-fullscreen" class="ghost">TELA CHEIA</button>
+    <button id="btn-settings" class="ghost" aria-haspopup="dialog" aria-controls="settings">⚙ AJUSTES</button>
+  </nav>
+
+  <div id="settings" class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="settings-title">AJUSTES</h2>
+        <button id="settings-close" aria-label="Fechar ajustes">FECHAR</button>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="tab-casa">CASA</button>
+        <button role="tab" aria-selected="false" data-tab="tab-conexoes">CONEXÕES</button>
+        <button role="tab" aria-selected="false" data-tab="tab-cameras">CÂMERAS</button>
+        <button role="tab" aria-selected="false" data-tab="tab-voz">VOZ</button>
+        <button role="tab" aria-selected="false" data-tab="tab-sobre">DADOS</button>
+      </div>
+      <div class="modal-body">
+        <section id="tab-casa" role="tabpanel">
+          <p class="muted" id="casa-hint">Carregando aparelhos…</p>
+          <div class="devices" id="devices"></div>
+        </section>
+        <section id="tab-conexoes" role="tabpanel" hidden>
+          <div class="conn-grid" id="connections"></div>
+        </section>
+        <section id="tab-cameras" role="tabpanel" hidden>
+          <form id="rule-form">
+            <div class="field"><label for="rule-on">Vigia da madrugada</label>
+              <select id="rule-on" name="enabled"><option value="true">Ligado</option><option value="false">Desligado</option></select></div>
+            <div class="field"><label for="rule-start">Das</label><input id="rule-start" name="start" type="time" required></div>
+            <div class="field"><label for="rule-end">Até</label><input id="rule-end" name="end" type="time" required></div>
+            <div class="field"><label>Avisar se aparecer</label>
+              <div class="checks">
+                <label><input type="checkbox" name="objects" value="pessoa"> pessoa</label>
+                <label><input type="checkbox" name="objects" value="carro"> carro</label>
+                <label><input type="checkbox" name="objects" value="animal"> animal</label>
+              </div></div>
+            <div class="field"><span></span><div><button class="btn primary" type="submit">SALVAR</button></div></div>
+            <div class="field"><span></span><span class="saved-note" id="rule-saved" role="status"></span></div>
+          </form>
+          <h3 class="sub">Últimos alertas</h3>
+          <div class="alert-list" id="alert-list"></div>
+          <details class="howto"><summary>Como ligar as câmeras Blink (Home Assistant)</summary>
+            <p>No Home Assistant, crie uma automação: quando o sensor de movimento da câmera ligar, chame o serviço <code>rest_command.sexta_camera</code>. No <code>configuration.yaml</code>:</p>
+            <pre id="ha-yaml"></pre>
+          </details>
+        </section>
+        <section id="tab-voz" role="tabpanel" hidden>
+          <form id="voice-form">
+            <div class="field"><label for="pref-engine">Voz</label>
+              <select id="pref-engine" name="tts_engine">
+                <option value="edge">Natural (Microsoft, precisa de internet)</option>
+                <option value="kokoro">Local (só no PC, sem internet)</option>
+              </select></div>
+            <div class="field"><label for="pref-edge">Voz natural</label><select id="pref-edge" name="edge_voice"></select></div>
+            <div class="field"><label for="pref-kokoro">Voz local</label><select id="pref-kokoro" name="tts_voice"></select></div>
+            <div class="field"><label for="pref-speed">Velocidade <span id="pref-speed-val"></span></label>
+              <input id="pref-speed" name="tts_speed" type="range" min="0.8" max="1.3" step="0.05"></div>
+            <div class="field"><span></span><div><button class="btn primary" type="submit">SALVAR</button>
+              <button class="btn" type="button" id="voice-test">OUVIR TESTE</button></div></div>
+            <div class="field"><span></span><span class="saved-note" id="voice-saved" role="status"></span></div>
+          </form>
+        </section>
+        <section id="tab-sobre" role="tabpanel" hidden>
+          <div id="data-info"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+  <script type="module" src="voice.js"></script>
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

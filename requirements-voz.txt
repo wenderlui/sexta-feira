@@ -1,0 +1,12 @@
+# Ouvir com faster-whisper na GPU (NVIDIA). Instale depois do requirements.txt.
+-r requirements.txt
+faster-whisper>=1.1
+# PyAV 19 quebra o decode_audio do faster-whisper 1.2 (metadata_errors); 16.x tem wheel no Windows.
+av>=16,<17
+# Bibliotecas CUDA para a GPU no Windows/Linux (sem instalar o CUDA Toolkit inteiro)
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9,<10
+# Falar: Kokoro (voz pt-BR local). Os modelos baixam sozinhos para models/ na primeira vez.
+kokoro-onnx>=0.4
+# Voz natural da Microsoft (gratuita, precisa de internet). Sem internet, usa o Kokoro.
+edge-tts>=7
