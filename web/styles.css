@@ -476,3 +476,30 @@ body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 /* IA em espera: ponto azul calmo em vez de verde */
 .chip.ok.standby i { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
 .chip.standby::after { content: "ESPERA"; font-size: 0.5rem; letter-spacing: 0.12em; color: var(--muted); }
+
+/* ---------- Celular em pé ---------- */
+@media (max-width: 700px) {
+  body { padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
+  .topbar { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "clock clock"; gap: 4px 12px; }
+  .brand { grid-area: brand; } .clock { grid-area: clock; padding: 2px 0 6px; } .chips { grid-area: chips; }
+  .brand-name { letter-spacing: 0.14em; font-size: 0.95rem; white-space: nowrap; }
+  .brand-sub { font-size: 0.8rem; }
+  .chips { gap: 6px; }
+  #clock-time { font-size: clamp(3rem, 17vw, 4.4rem); }
+  .hud { grid-template-columns: minmax(0, 1fr); grid-template-areas: "core" "weather" "usdt" "crypto" "system"; }
+  .core { height: min(260px, 62vw); }
+  .controls {
+    left: 8px; right: 8px; transform: none; width: auto; max-width: none;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px; border-radius: 26px;
+  }
+  .controls button { min-width: 0; padding: 0 6px; justify-content: center; white-space: nowrap; font-size: 0.6rem; letter-spacing: 0.1em; }
+  .controls .talk { grid-column: 1 / -1; order: 1; min-height: 52px; font-size: 0.75rem; letter-spacing: 0.24em; }
+  #btn-fullscreen { display: none; } /* o Safari do iPhone não tem tela cheia; use "Adicionar à Tela de Início" */
+  .alert-banner { grid-template-columns: 1fr; }
+  .modal { padding: 8px; }
+  .modal-card { max-height: calc(100dvh - 16px); border-radius: 22px; }
+  .modal-head { padding: 12px 14px; }
+  .tabs { flex-wrap: wrap; gap: 4px; padding: 8px 10px 0; }
+  .tabs button { padding: 0 10px; letter-spacing: 0.12em; }
+  .modal-body { padding: 12px; }
+}

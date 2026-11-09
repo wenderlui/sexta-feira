@@ -98,6 +98,24 @@ ok(after === target, `velocidade não ficou salva depois de recarregar (${before
 await page.$eval("#pref-speed", (e, v) => { e.value = v; e.dispatchEvent(new Event("input", { bubbles: true })); }, before);
 await page.click("#voice-form button[type=submit]");
 
+// 7) Celular em pé (iPhone): sem rolagem lateral, barra dentro da tela, botões tocáveis
+const phone = await browser.newPage({ viewport: { width: 390, height: 664 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+phone.on("pageerror", (e) => errors.push(e.message));
+await phone.goto(base); await phone.waitForTimeout(1500);
+const pw = await phone.evaluate(() => document.documentElement.scrollWidth);
+ok(pw <= 390, `celular: rolagem lateral (largura ${pw})`);
+const pbtns = await phone.$$eval(".controls > button", (els) => els.filter((e) => e.offsetParent).map((e) => {
+  const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, h: r.height, w: r.width, wrap: e.scrollWidth > e.clientWidth + 1 };
+}));
+ok(pbtns.every((b) => b.l >= 0 && b.r <= 390), "celular: botão saindo da tela");
+ok(pbtns.every((b) => b.h >= 44 && b.w >= 44), "celular: botão menor que 44 px");
+ok(pbtns.every((b) => !b.wrap), "celular: texto de botão cortado");
+if (shots) await phone.screenshot({ path: `${shots}/celular.png` });
+await phone.click("#btn-settings");
+const pc = await phone.$eval(".modal-card", (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right }; });
+ok(pc.l >= 0 && pc.r <= 390, "celular: ajustes saem da tela");
+ok(await phone.$eval(".tabs", (e) => e.scrollWidth <= e.clientWidth + 1), "celular: abas dos ajustes cortadas");
+
 ok(errors.length === 0, `erros de JavaScript: ${errors.join(" | ")}`);
 await browser.close();
 
@@ -105,4 +123,4 @@ if (problems.length) {
   console.log("PROBLEMAS:\n- " + problems.join("\n- "));
   process.exit(1);
 }
-console.log("Tela OK: sem rolagem, painéis sem sobreposição, botões alinhados, ajustes salvando no PC.");
+console.log("Tela OK (iPad e celular): sem rolagem, painéis sem sobreposição, botões alinhados, ajustes salvando no PC.");

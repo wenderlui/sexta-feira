@@ -45,6 +45,7 @@ Fora do escopo por enquanto: placar de futebol (pedido do usuário), pagamentos 
 | Senhas e chaves nunca voltam ao iPad | `test_connection_secret_never_goes_back_to_the_ipad` |
 | Controle de aparelhos pela tela e por voz | `test_devices_from_home_assistant_and_govee`, `test_ai_controls_the_house` |
 | Botões alinhados, alvo de toque ≥ 44 px, sem rolagem no iPad deitado | `scripts/verificar-tela.mjs` |
+| Funciona no celular em pé: sem rolagem lateral, barra e ajustes dentro da tela | `scripts/verificar-tela.mjs` |
 
 ## 5. Qualidade
 
@@ -80,7 +81,8 @@ Fora do escopo por enquanto: placar de futebol (pedido do usuário), pagamentos 
 | Risco | Prob. | Impacto | Resposta |
 |---|---|---|---|
 | Internet cai | Média | Médio | Voz local (Kokoro) e IA local continuam; painel mostra o último valor. |
-| PC reinicia ou atualiza | Média | Alto | Tarefa do Windows religa o servidor; modelo pré-carregado. |
+| PC reinicia ou atualiza | Média | Alto | Tarefa do Windows religa o servidor (até 999 tentativas e checagem a cada 5 min); PC nunca suspende na tomada. Sem login automático, só sobe quando o usuário entra no Windows. |
+| Servidor cai no logoff | Baixa | Alto | Corrigido: `FOR_DISABLE_CONSOLE_CTRL_HANDLER=1` em `iniciar.ps1`. |
 | iPad fica com versão antiga do app | Baixa | Médio | Service worker se atualiza sozinho. |
 | Serviço externo muda a API (Govee, CoinGecko) | Média | Baixo | Erros aparecem nos ajustes e no registro; testes simulados mostram o formato esperado. |
 | Vazamento de token | Baixa | Alto | Token só no PC, nunca no iPad nem no Git; tokens podem ser revogados no Home Assistant/Govee. |
