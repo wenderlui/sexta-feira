@@ -19,6 +19,9 @@ Assistente pessoal de IA que roda no seu PC 24/7 e usa o iPad como visor.
 Veja [docs/voz-e-ia.md](docs/voz-e-ia.md) para instalar a IA e a voz, e
 [docs/arquitetura.md](docs/arquitetura.md) para a pesquisa e as escolhas.
 
+**Programa do PC:** janela com menus e ícone na bandeja, IA 100% local e modo offline.
+Instale com `scripts\instalar-desktop.ps1`; detalhes em [docs/programa-desktop.md](docs/programa-desktop.md).
+
 ## Rodar rápido
 
 ```bash

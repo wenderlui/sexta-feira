@@ -134,7 +134,9 @@ class Speaker:
         self.last_engine: str | None = None
 
     def _engines(self) -> list:
-        order = [self.edge, self.kokoro] if self.s.tts_engine == "edge" else [self.kokoro]
+        # Modo offline: a voz da Microsoft precisa de internet, então só o Kokoro (local).
+        use_edge = self.s.tts_engine == "edge" and not getattr(self.s, "offline", False)
+        order = [self.edge, self.kokoro] if use_edge else [self.kokoro]
         return [e for e in order if e.installed()]
 
     @property

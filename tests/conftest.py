@@ -62,6 +62,7 @@ class FakeUpstream:
         self.ha_calls: list = []
         self.ollama_generate: list[dict] = []
         self.ollama_loaded: list[str] = []
+        self.ollama_models: list[str] = ["qwen3:8b"]
         self.govee_calls: list = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -76,7 +77,7 @@ class FakeUpstream:
             ids = request.url.params["ids"].split(",")
             return httpx.Response(200, json={k: v for k, v in CRYPTO.items() if k in ids})
         if host == "127.0.0.1" and request.url.path == "/api/tags":
-            return httpx.Response(200, json={"models": [{"name": "qwen3:8b"}]})
+            return httpx.Response(200, json={"models": [{"name": m} for m in self.ollama_models]})
         if host == "127.0.0.1" and request.url.path == "/api/generate":
             self.ollama_generate.append(json.loads(request.content))
             return httpx.Response(200, json={"done": True})
