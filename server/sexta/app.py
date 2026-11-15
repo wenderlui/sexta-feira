@@ -22,6 +22,7 @@ from .tts import Speaker
 from .store import Store
 from .home import CATALOG, CATALOG_BY_ID, Home, HomeError
 from .cameras import Alerts, Watchman
+from . import desktop
 from fastapi.responses import FileResponse
 
 
@@ -51,6 +52,7 @@ class Prefs(BaseModel):
     edge_voice: str | None = None
     tts_voice: str | None = None
     tts_speed: float | None = Field(default=None, ge=0.8, le=1.3)
+    offline: bool | None = None
 
 
 class ConnectionIn(BaseModel):
@@ -102,7 +104,7 @@ def _keep_last_audio(audio: bytes, content_type: str) -> None:
 
 
 def _apply_prefs(settings: Settings, prefs: dict) -> None:
-    for key in ("tts_engine", "edge_voice", "tts_voice", "tts_speed"):
+    for key in ("tts_engine", "edge_voice", "tts_voice", "tts_speed", "offline", "chat_model"):
         if prefs.get(key) is not None:
             setattr(settings, key, prefs[key])
 
@@ -208,7 +210,8 @@ def create_app(
             response.headers["Cache-Control"] = "no-store"
         # Cabeçalhos de segurança padrão.
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        # SAMEORIGIN: o programa do PC mostra o painel dentro da própria janela.
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
         return response
@@ -315,6 +318,7 @@ def create_app(
         return {
             "tts_engine": settings.tts_engine, "edge_voice": settings.edge_voice,
             "tts_voice": settings.tts_voice, "tts_speed": settings.tts_speed,
+            "offline": settings.offline,
             "options": {"edge_voice": EDGE_VOICES, "tts_voice": KOKORO_VOICES},
             "saved_at": str(store.path.name),
         }
@@ -480,6 +484,8 @@ def create_app(
                 "usdtbrl": settings.usdtbrl_ttl,
             },
         }
+
+    desktop.register(app, settings, store, state, ears, mouth, LOG_DIR)
 
     if web_dir.is_dir():
         app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")

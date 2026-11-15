@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#02060d">
+  <link rel="icon" type="image/png" href="icons/icon-180.png">
+  <link rel="stylesheet" href="desktop.css">
+  <title>Sexta-feira</title>
+</head>
+<body>
+  <aside class="side">
+    <div class="brand">
+      <div class="core" id="core" aria-hidden="true"></div>
+      <div>
+        <div class="brand-name">SEXTA-FEIRA</div>
+        <div class="brand-sub" id="brand-sub">IA local</div>
+      </div>
+    </div>
+    <nav id="menu">
+      <button data-view="inicio" class="active"><span>⌂</span>Início<kbd>Ctrl 1</kbd></button>
+      <button data-view="chat"><span>✦</span>Conversa<kbd>Ctrl 2</kbd></button>
+      <button data-view="painel"><span>◎</span>Painel HUD<kbd>Ctrl 3</kbd></button>
+      <button data-view="modelos"><span>⬢</span>Modelos<kbd>Ctrl 4</kbd></button>
+      <button data-view="servicos"><span>⚡</span>Serviços<kbd>Ctrl 5</kbd></button>
+      <button data-view="registros"><span>≡</span>Registros<kbd>Ctrl 6</kbd></button>
+      <button data-view="ajustes"><span>⚙</span>Ajustes<kbd>Ctrl 7</kbd></button>
+    </nav>
+    <label class="offline-toggle" title="Só a IA local: sem busca na internet e voz Kokoro">
+      <input type="checkbox" id="offline"> <span>Modo offline</span>
+    </label>
+    <div class="side-foot">
+      <div id="side-model">modelo: —</div>
+      <div id="side-clock"></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- INÍCIO -->
+    <section class="view active" id="view-inicio">
+      <header class="view-head"><h1 id="hello">Olá</h1><p id="hello-sub">Tudo rodando no seu PC.</p></header>
+      <div class="grid stats" id="stats">
+        <div class="card stat"><small>CPU</small><b id="st-cpu">—</b><div class="bar"><i id="bar-cpu"></i></div></div>
+        <div class="card stat"><small>RAM</small><b id="st-ram">—</b><div class="bar"><i id="bar-ram"></i></div></div>
+        <div class="card stat"><small>GPU</small><b id="st-gpu">—</b><div class="bar"><i id="bar-gpu"></i></div></div>
+        <div class="card stat"><small>VRAM</small><b id="st-vram">—</b><div class="bar"><i id="bar-vram"></i></div></div>
+        <div class="card stat"><small>Ligado há</small><b id="st-up">—</b><small id="st-temp"></small></div>
+      </div>
+      <div class="grid two">
+        <div class="card"><h2>Serviços</h2><ul class="svc" id="home-svc"></ul></div>
+        <div class="card">
+          <h2>Pergunta rápida</h2>
+          <form id="quick" class="row"><input id="quick-in" placeholder="Pergunte qualquer coisa…" autocomplete="off"><button>Enviar</button></form>
+          <div class="quick-out" id="quick-out"></div>
+          <h2>Alertas</h2><ul class="alerts" id="alerts"><li class="muted">Nenhum alerta.</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHAT -->
+    <section class="view chat-view" id="view-chat">
+      <header class="view-head row-between">
+        <div><h1>Conversa</h1><p id="chat-model">—</p></div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="speak"> Falar respostas</label>
+          <button class="ghost" id="chat-clear">Nova conversa</button>
+        </div>
+      </header>
+      <div class="msgs" id="msgs"></div>
+      <form class="composer" id="composer">
+        <button type="button" class="mic" id="mic" title="Segure para falar (ou Ctrl+Espaço)">🎙</button>
+        <textarea id="input" rows="1" placeholder="Escreva para a Sexta-feira… (Enter envia, Shift+Enter quebra a linha)"></textarea>
+        <button class="send" id="send">Enviar</button>
+      </form>
+    </section>
+
+    <!-- PAINEL -->
+    <section class="view painel-view" id="view-painel">
+      <iframe id="hud" title="Painel HUD" allow="microphone; camera; autoplay" data-src="/"></iframe>
+    </section>
+
+    <!-- MODELOS -->
+    <section class="view" id="view-modelos">
+      <header class="view-head"><h1>Modelos</h1><p>O cérebro da Sexta-feira. Tudo roda na sua placa de vídeo, sem internet.</p></header>
+      <div class="card"><h2>Instalados</h2><table class="tbl" id="models"><tbody><tr><td class="muted">Carregando…</td></tr></tbody></table></div>
+      <div class="card">
+        <h2>Sugestões para a RTX 4070 Ti (12 GB)</h2>
+        <p class="muted">Para instalar, abra o terminal e rode o comando. Depois clique em “Usar” aqui.
+          O jeito de responder depende do modelo: os ajustados para obedecer o dono (como o dolphin3) recusam bem menos.</p>
+        <ul class="sugg" id="sugg"></ul>
+      </div>
+    </section>
+
+    <!-- SERVIÇOS -->
+    <section class="view" id="view-servicos">
+      <header class="view-head row-between"><div><h1>Serviços</h1><p>Cada peça da Sexta-feira neste PC.</p></div>
+        <div class="row"><button class="ghost desk-only" id="restart">Reiniciar servidor</button><button class="ghost" id="svc-refresh">Atualizar</button></div></header>
+      <div class="grid three" id="svc-cards"></div>
+    </section>
+
+    <!-- REGISTROS -->
+    <section class="view logs-view" id="view-registros">
+      <header class="view-head row-between"><div><h1>Registros</h1><p>logs\servidor.log</p></div>
+        <div class="row"><input id="log-q" placeholder="Filtrar…"><label class="check"><input type="checkbox" id="log-auto" checked> ao vivo</label>
+          <button class="ghost desk-only" data-folder="logs">Abrir pasta</button></div></header>
+      <pre class="log" id="log"></pre>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="view" id="view-ajustes">
+      <header class="view-head"><h1>Ajustes</h1><p>Salvos só neste PC (data\ajustes.json).</p></header>
+      <div class="grid two">
+        <div class="card">
+          <h2>Programa</h2>
+          <label class="check desk-only"><input type="checkbox" id="autostart"> Abrir com o Windows (fica na bandeja)</label>
+          <p class="muted desk-only">Fechar a janela esconde a Sexta-feira na bandeja, perto do relógio. Para sair de vez: botão direito no ícone &gt; Sair.</p>
+          <div class="row desk-only"><button class="ghost" data-folder="data">Pasta de dados</button><button class="ghost" data-folder="projeto">Pasta do projeto</button><button class="ghost" id="open-browser">Painel no navegador</button></div>
+          <p class="muted web-only">Abra pelo programa do PC para ver os ajustes da janela.</p>
+        </div>
+        <div class="card">
+          <h2>Voz</h2>
+          <label>Motor <select id="tts-engine"><option value="edge">Microsoft (natural, precisa de internet)</option><option value="kokoro">Kokoro (100% local)</option></select></label>
+          <label>Voz Microsoft <select id="edge-voice"></select></label>
+          <label>Voz Kokoro <select id="kokoro-voice"></select></label>
+          <label>Velocidade <input type="range" id="tts-speed" min="0.8" max="1.3" step="0.05"><span id="tts-speed-v"></span></label>
+          <button class="ghost" id="tts-test">Testar voz</button>
+        </div>
+      </div>
+      <div class="card"><h2>Atalhos</h2>
+        <p class="muted">Ctrl+1 a Ctrl+7 trocam de tela · Ctrl+Espaço fala na Conversa · Esc esconde a janela</p></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script type="module" src="desktop.js"></script>
+</body>
+</html>

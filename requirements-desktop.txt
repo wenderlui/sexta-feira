@@ -1,0 +1,5 @@
+# Programa do PC (janela + bandeja). Instale depois do requirements-voz.txt.
+-r requirements-voz.txt
+pywebview>=5.3      # janela nativa usando o Edge WebView2 (já vem no Windows 11)
+pystray>=0.19       # ícone na bandeja
+pillow>=10          # ícone da bandeja e do atalho

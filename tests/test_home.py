@@ -132,7 +132,7 @@ def test_security_headers(client):
     for url in ("/", "/api/health"):
         h = client.get(url).headers
         assert h["x-content-type-options"] == "nosniff"
-        assert h["x-frame-options"] == "DENY"
+        assert h["x-frame-options"] == "SAMEORIGIN"  # o programa do PC mostra o painel na janela
         assert h["referrer-policy"] == "no-referrer"
     assert client.get("/api/settings").headers["cache-control"] == "no-store"
 

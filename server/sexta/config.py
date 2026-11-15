@@ -62,6 +62,7 @@ class Settings:
     tts_speed: float = 1.05
     tts_engine: str = "edge"      # "edge" (Microsoft, natural) ou "kokoro" (só local)
     edge_voice: str = "pt-BR-FranciscaNeural"
+    offline: bool = False         # modo offline: só IA local, sem busca na internet e voz Kokoro
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "Settings":
@@ -86,4 +87,5 @@ class Settings:
             tts_speed=float(env.get("SEXTA_TTS_SPEED", cls.tts_speed)),
             tts_engine=env.get("SEXTA_TTS_ENGINE", cls.tts_engine).lower(),
             edge_voice=env.get("SEXTA_EDGE_VOICE", cls.edge_voice),
+            offline=env.get("SEXTA_OFFLINE", "").strip().lower() in ("1", "true", "sim", "yes"),
         )

@@ -226,10 +226,11 @@ class Assistant:
 
         msgs: list[dict[str, Any]] = [system, *history]
         for _ in range(3):  # até 3 rodadas de ferramenta
-            tools = [SEARCH_TOOL, NEWS_TOOL]
+            # Modo offline: nada de internet, a IA responde só com o que sabe e com a casa.
+            tools = [] if self.s.offline else [SEARCH_TOOL, NEWS_TOOL]
             if self.home is not None and self.home.configured:
                 tools.append(HOME_TOOL)
-            msg = await self._ollama_chat(self.s.chat_model, msgs, tools=tools)
+            msg = await self._ollama_chat(self.s.chat_model, msgs, tools=tools or None)
             calls = msg.get("tool_calls") or []
             if not calls:
                 return {"text": _strip_think(msg.get("content", "")), "model": self.s.chat_model,
